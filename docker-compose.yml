@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Backend FastAPI application
+  hulk:
+    build: 
+      context: ./hulk
+    container_name: hulk-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./hulk/.env
+    volumes:
+      - ./hulk:/app
+      - /app/__pycache__
+    networks:
+      - maverick-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Frontend React application
+  hela:
+    build:
+      context: ./hela
+    container_name: hela-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - hulk
+    networks:
+      - maverick-network
+    environment:
+      - NODE_ENV=production
+
+networks:
+  maverick-network:
+    driver: bridge
