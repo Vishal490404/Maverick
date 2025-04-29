@@ -10,12 +10,13 @@ interface NavItem {
 }
 
 const Sidebar = () => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
   
   // Handle clicking outside of profile menu to close it
   useEffect(() => {
@@ -28,6 +29,44 @@ const Sidebar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Added to persist collapsed state in localStorage
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState !== null) {
+      setIsCollapsed(savedState === 'true');
+    }
+  }, []);
+
+  // Add keyboard shortcut (Ctrl+B) for toggling sidebar
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      // Check for Ctrl+B (or Cmd+B on Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+        event.preventDefault(); // Prevent browser default behavior
+        toggleSidebar();
+      }
+    }
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isCollapsed]);
+
+  // Toggle sidebar collapsed state and save to localStorage
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem('sidebarCollapsed', String(newState));
+  };
+
+  // Handle profile menu mouse events
+  const handleMouseEnter = () => {
+    setShowProfileMenu(true);
+  };
+
+  const handleMouseLeave = () => {
+    setShowProfileMenu(false);
+  };
 
   const handleLogout = () => {
     logout();
@@ -112,74 +151,99 @@ const Sidebar = () => {
     }
   ];
 
+  // Improved path matching logic for active state detection
+  const isPathActive = (path: string): boolean => {
+    // Exact match
+    if (location.pathname === path) return true;
+    
+    // Special handling for root paths and their sub-routes
+    if (path !== '/') {
+      // For index routes with potential sub-routes (e.g., /papers vs /papers/create)
+      if (path.split('/').length === 2 && location.pathname.startsWith(path + '/')) {
+        // Don't highlight parent for specific child routes that have their own nav items
+        const childPaths = navigation
+          .filter(item => item.path !== path && item.path.startsWith(path + '/'))
+          .map(item => item.path);
+          
+        // If the current path matches a specific child route with its own nav item, 
+        // don't highlight the parent
+        if (childPaths.some(childPath => location.pathname === childPath)) {
+          return false;
+        }
+        
+        // Otherwise, highlight the parent for other sub-routes
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   return (
     <div 
+      ref={sidebarRef}
       className={`${
         isCollapsed ? 'w-20' : 'w-64'
-      } min-h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out relative flex flex-col z-10`}
+      } h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col fixed md:static inset-y-0 left-0 z-40`}
     >
-      {/* Collapse/Expand Toggle Button - Updated styling */}
+      {/* Logo and Brand - Add keyboard shortcut hint */}
       <div 
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 bg-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg cursor-pointer hover:bg-gray-50 border border-indigo-200 z-10 transition-transform duration-300 hover:scale-110"
+        className="h-16 flex items-center justify-between px-4 border-b border-gray-200 flex-shrink-0 relative cursor-pointer"
+        onClick={toggleSidebar}
+        title="Toggle sidebar (Ctrl+B)"
       >
-        {isCollapsed ? (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        )}
-      </div>
-
-      {/* Logo and Brand */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 flex-shrink-0">
         <div className={`flex items-center ${isCollapsed ? 'justify-center w-full' : ''}`}>
           <svg className="h-8 w-8 text-indigo-600 flex-shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M12 6.25278V19.2528M12 6.25278C10.8321 5.47686 9.24649 5 7.5 5C5.75351 5 4.16789 5.47686 3 6.25278V19.2528C4.16789 18.4769 5.75351 18 7.5 18C9.24649 18 10.8321 18.4769 12 19.2528M12 6.25278C13.1679 5.47686 14.7535 5 16.5 5C18.2465 5 19.8321 5.47686 21 6.25278V19.2528C19.8321 18.4769 18.2465 18 16.5 18C14.7535 18 13.1679 18.4769 12 19.2528" 
               stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           {!isCollapsed && (
-            <span className="ml-2 text-lg font-bold text-gray-900 truncate">ExamCraft</span>
+            <>
+              <span className="ml-2 text-lg font-bold text-gray-900">ExamCraft</span>
+            </>
           )}
         </div>
       </div>
 
-      {/* Navigation Links - Updated styling for smoother appearance */}
-      <nav className="px-2 py-4 space-y-1 overflow-y-auto flex-grow">
-        {navigation
-          .filter(item => !item.admin || (item.admin && user?.is_superuser))
-          .map((item) => (
-            <Link
-              key={item.name}
-              to={item.path}
-              className={`${
-                location.pathname === item.path
-                  ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent hover:border-indigo-300'
-              } ${
-                isCollapsed ? 'justify-center px-2' : 'justify-start px-3'
-              } group flex items-center py-3 text-sm font-medium rounded-md transition-all duration-150`}
-            >
-              <div className={`${isCollapsed ? '' : 'mr-3'} text-current transition-transform group-hover:scale-110`}>{item.icon}</div>
-              {!isCollapsed && <span className="transition-colors">{item.name}</span>}
-              {isCollapsed && (
-                <div className="absolute left-full ml-3 z-10 w-auto px-3 py-2 text-sm bg-indigo-600 rounded-md text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap transform -translate-y-1/2 top-1/2">
-                  {item.name}
-                </div>
-              )}
-            </Link>
-          ))}
+      {/* Navigation Links - Fixed scrolling with improved CSS */}
+      <nav className="px-2 py-4 flex-grow overflow-y-auto overflow-x-hidden">
+        <div className="space-y-1">
+          {navigation
+            .filter(item => !item.admin || (item.admin && user?.is_superuser))
+            .map((item) => (
+              <Link
+                key={item.name}
+                to={item.path}
+                className={`${
+                  isPathActive(item.path)
+                    ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500'
+                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900 border-l-4 border-transparent hover:border-indigo-300'
+                } ${
+                  isCollapsed ? 'justify-center px-2' : 'justify-start px-3'
+                } group flex items-center py-3 text-sm font-medium rounded-md transition-all duration-150 relative`}
+              >
+                <div className={`${isCollapsed ? '' : 'mr-3'} text-current transition-transform group-hover:scale-110`}>{item.icon}</div>
+                {!isCollapsed && <span className="transition-colors truncate">{item.name}</span>}
+                {isCollapsed && (
+                  <div className="absolute left-full ml-3 z-50 w-auto px-3 py-2 text-sm bg-indigo-600 rounded-md text-white opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none whitespace-nowrap transform -translate-y-1/2 top-1/2">
+                    {item.name}
+                  </div>
+                )}
+              </Link>
+            ))}
+        </div>
       </nav>
 
-      {/* User Profile Area - Fixed button nesting issue */}
-      <div className={`border-t border-gray-200 bg-gray-50 ${isCollapsed ? 'p-2' : 'p-4'}`} ref={profileMenuRef}>
+      {/* User Profile Area */}
+      <div 
+        className={`border-t border-gray-200 bg-gray-50 ${isCollapsed ? 'p-2' : 'p-4'} mt-auto flex-shrink-0 relative`} 
+        ref={profileMenuRef}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         {isCollapsed ? (
           <div className="flex justify-center">
             <div 
-              onClick={() => setShowProfileMenu(!showProfileMenu)} 
               className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center relative cursor-pointer"
             >
               <span className="font-medium text-indigo-800">
@@ -187,7 +251,7 @@ const Sidebar = () => {
               </span>
 
               {showProfileMenu && (
-                <div className="absolute bottom-full mb-2 -left-10 sm:left-0 z-20 w-56 bg-white rounded-md shadow-lg overflow-hidden">
+                <div className="fixed left-20 top-auto z-50 w-56 bg-white rounded-md shadow-lg overflow-hidden">
                   <div className="p-3 border-b border-gray-100">
                     <p className="font-medium text-sm text-gray-900 truncate">{user?.full_name}</p>
                     <p className="text-xs text-gray-500 truncate mt-0.5">{user?.email}</p>
@@ -208,7 +272,6 @@ const Sidebar = () => {
         ) : (
           <div>
             <div 
-              onClick={() => setShowProfileMenu(!showProfileMenu)} 
               className="flex items-center cursor-pointer"
             >
               <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
@@ -216,10 +279,19 @@ const Sidebar = () => {
                   {user?.full_name?.charAt(0) || user?.username?.charAt(0) || '?'}
                 </span>
               </div>
-              <div className="ml-3 truncate">
+              <div className="ml-3 overflow-hidden">
                 <div className="text-sm font-medium text-gray-900 truncate">{user?.full_name}</div>
                 <div className="text-xs text-gray-500 truncate">{user?.email}</div>
               </div>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className={`ml-auto h-4 w-4 text-gray-400 transition-transform ${showProfileMenu ? 'transform rotate-180' : ''}`} 
+                fill="none" 
+                viewBox="0 0 24 24" 
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
             </div>
             
             {showProfileMenu && (
@@ -238,6 +310,13 @@ const Sidebar = () => {
           </div>
         )}
       </div>
+      
+      {/* Optional keyboard shortcut hint toast */}
+      {!isCollapsed && (
+        <div className="fixed bottom-4 right-4 bg-indigo-600 text-white px-4 py-3 rounded-md shadow-lg z-50 animate-fadeIn hidden">
+          <p className="text-sm">Press <span className="font-bold">Ctrl+B</span> to toggle sidebar</p>
+        </div>
+      )}
     </div>
   );
 };

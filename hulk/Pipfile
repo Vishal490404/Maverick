@@ -18,6 +18,7 @@ google-generativeai = "*"
 pdf2image = "*"
 pillow = "*"
 openai = "*"
+pandas = "*"
 
 [dev-packages]
 pytest = "*"

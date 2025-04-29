@@ -75,6 +75,7 @@ export interface Tag {
   id: string;
   name: string;
   description?: string;
+  color: string;
   usage_count?: number;
 }
 
@@ -801,9 +802,56 @@ export const curriculumApi = {
       return { error: 'Network error. Please check your connection and try again.' };
     }
   },
-  
+
+  // Add missing deleteQuestionType function to the curriculumApi object
+  deleteQuestionType: async (questionTypeId: string, token: string): Promise<ApiResponse<null>> => {
+    try {
+      const response = await fetch(`${API_URL}/curriculum/question-types/${questionTypeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+      
+      return { data: null };
+    } catch (error) {
+      console.error('Delete question type error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Add missing updateQuestionType function to the curriculumApi object
+  updateQuestionType: async (questionTypeId: string, questionType: { name?: string, description?: string }, token: string): Promise<ApiResponse<QuestionType>> => {
+    try {
+      const response = await fetch(`${API_URL}/curriculum/question-types/${questionTypeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(questionType),
+      });
+      
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+      
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Update question type error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
   // TAG ENDPOINTS
-  
+
   // Get all tags
   getTags: async (token: string): Promise<ApiResponse<Tag[]>> => {
     try {
@@ -826,9 +874,9 @@ export const curriculumApi = {
       return { error: 'Network error. Please check your connection and try again.' };
     }
   },
-  
+
   // Create a tag
-  createTag: async (tag: { name: string, description?: string }, token: string): Promise<ApiResponse<Tag>> => {
+  createTag: async (tag: { name: string, description?: string, color: string }, token: string): Promise<ApiResponse<Tag>> => {
     try {
       const response = await fetch(`${API_URL}/curriculum/tags`, {
         method: 'POST',
@@ -850,5 +898,241 @@ export const curriculumApi = {
       console.error('Create tag error:', error);
       return { error: 'Network error. Please check your connection and try again.' };
     }
+  },
+
+  // Update a tag
+  updateTag: async (tagId: string, tag: { name?: string, description?: string, color?: string }, token: string): Promise<ApiResponse<Tag>> => {
+    try {
+      const response = await fetch(`${API_URL}/curriculum/tags/${tagId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(tag),
+      });
+      
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+      
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Update tag error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Delete a tag
+  deleteTag: async (tagId: string, force: boolean = false, token: string): Promise<ApiResponse<null>> => {
+    try {
+      const response = await fetch(`${API_URL}/curriculum/tags/${tagId}?force=${force}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+      });
+      
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+      
+      return { data: null };
+    } catch (error) {
+      console.error('Delete tag error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
   }
+};
+
+export interface Question {
+  id: string;
+  question_text: string;
+  question_type_id: string;
+  question_type_name: string;
+  difficulty_level: string;
+  marks: number;
+  image_required: boolean;
+  images?: string[];
+  topic_id: string;
+  chapter_id: string;
+  subject_id: string;
+  standard_id: string;
+  tags?: string[];
+  created_at: string;
+  created_by: string;
+  updated_at: string;
+  updated_by: string;
+}
+
+export interface QuestionType {
+  id: string;
+  name: string;
+  description?: string;
+  usage_count?: number;
+  selected?: boolean;
+}
+
+export interface ScanResult {
+  questions: Array<{
+    question_text: string;
+    image_required: boolean;
+    difficulty_level?: string;
+    marks?: number;
+  }>;
+}
+
+// Question API handling
+export const questionApi = {
+  // Scan PDF document to extract questions
+  scanPdf: async (file: File, token: string): Promise<ApiResponse<ScanResult>> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/question-extractor/scan-pdf`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Scan PDF error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Scan Excel/CSV document to extract questions
+  scanExcel: async (file: File, token: string): Promise<ApiResponse<ScanResult>> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/question-extractor/scan-excel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Scan Excel/CSV error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Scan Image to extract questions
+  scanImage: async (file: File, token: string): Promise<ApiResponse<ScanResult>> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/question-extractor/scan-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Scan image error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Create a new question
+  createQuestion: async (question: any, token: string): Promise<ApiResponse<Question>> => {
+    try {
+      const formData = new FormData();
+      
+      // Add all question fields to the form data
+      Object.entries(question).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (key === 'image' && value instanceof File) {
+            formData.append('image', value);
+          } else if (key === 'tags' && typeof value === 'string' && value.trim()) {
+            // Convert comma-separated tags string to appropriate format
+            formData.append('tags', value.trim());
+          } else {
+            formData.append(key, String(value));
+          }
+        }
+      });
+
+      const response = await fetch(`${API_URL}/questions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Create question error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  // Get question image URL
+  getQuestionImageUrl: (questionId: string, imageId: string): string => {
+    return `${API_URL}/questions/${questionId}/images/${imageId}`;
+  },
+
+  // Get questions by topic
+  getQuestionsByTopic: async (topicId: string, token: string): Promise<ApiResponse<Question[]>> => {
+    try {
+      const response = await fetch(`${API_URL}/questions/topic/${topicId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Get questions by topic error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
 };

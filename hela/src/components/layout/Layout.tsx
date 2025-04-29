@@ -12,12 +12,13 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Check if the current path is a dashboard path - now includes signup page
+  // Check if the current path is a dashboard path
   const isDashboardPath = location.pathname.startsWith('/dashboard') || 
                           location.pathname.startsWith('/questions') ||
                           location.pathname.startsWith('/question-banks') ||
                           location.pathname.startsWith('/papers') ||
                           location.pathname.startsWith('/settings') ||
+                          location.pathname.startsWith('/curriculum') ||
                           location.pathname.startsWith('/signup'); // Added signup to dashboard layout
   
   // Don't show footer in dashboard layout
@@ -41,10 +42,11 @@ const Layout = ({ children }: LayoutProps) => {
     };
   }, [isMobileMenuOpen]);
   
+  // Dashboard layout with fixed sidebar and scrollable main content
   if (isDashboardPath) {
     return (
-      <div className="flex flex-col md:flex-row min-h-screen">
-        {/* Mobile menu toggle button */}
+      <div className="flex flex-col md:flex-row h-screen overflow-hidden">
+        {/* Mobile menu toggle button - fixed positioning */}
         <div className="block md:hidden fixed top-4 left-4 z-30">
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -63,13 +65,21 @@ const Layout = ({ children }: LayoutProps) => {
           </button>
         </div>
         
-        {/* Sidebar */}
-        <div className={`${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 fixed md:relative z-20 transition-transform duration-300 ease-in-out h-screen`}>
+        {/* Fixed sidebar with no scroll */}
+        <div className={`${isMobileMenuOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0 md:opacity-100'} md:translate-x-0 fixed md:sticky top-0 left-0 z-20 transition-all duration-300 ease-in-out h-screen overflow-hidden flex-shrink-0`}>
           <Sidebar />
         </div>
         
-        {/* Main content */}
-        <main className="flex-grow bg-gray-50 min-h-screen pt-16 md:pt-0 w-full">
+        {/* Overlay for mobile when sidebar is open */}
+        {isMobileMenuOpen && (
+          <div 
+            className="fixed inset-0 bg-gray-600 bg-opacity-50 z-10 md:hidden transition-opacity" 
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+        
+        {/* Scrollable main content */}
+        <main className="flex-grow bg-gray-50 h-screen overflow-y-auto pt-16 md:pt-0 w-full">
           {children}
         </main>
       </div>

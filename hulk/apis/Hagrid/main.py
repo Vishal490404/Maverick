@@ -11,7 +11,7 @@ load_dotenv(dotenv_path=".env")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "480"))
 
 @router.post('/register', status_code=201, response_model=UserResponse)
 async def register(user_create: UserCreate, current_admin = Depends(get_current_admin_user)):

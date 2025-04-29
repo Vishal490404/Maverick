@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { paperApi, Chapter, Subject, Standard, QuestionType, QuestionBank } from '../utils/api';
+import { Select } from '../components/ui';
 
 // Steps for the paper creation wizard
 type Step = 'selection' | 'basicInfo' | 'chapters' | 'questions' | 'review';
@@ -1058,7 +1059,7 @@ const PaperCreation = () => {
                     className="text-sm text-gray-600 hover:text-indigo-500 font-medium flex items-center"
                   >
                     <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H4.828c-1.782 0-2.674 2.154-1.414 3.414l5 5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
                     View Paper Templates
                   </Link>
