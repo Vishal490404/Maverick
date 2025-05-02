@@ -1,5 +1,5 @@
 import { API_URL, handleApiError } from './utils';
-import { ApiResponse, Question, ScanResult } from './types';
+import { ApiResponse, Question, ScanResult, QuestionBank } from './types';
 
 /**
  * Question management API client
@@ -276,5 +276,32 @@ export const questionApi = {
    */
   getQuestionImageUrl: (questionId: string, imageId: string): string => {
     return `${API_URL}/questions/${questionId}/images/${imageId}`;
+  },
+
+  /**
+   * Create a new question bank
+   */
+  createQuestionBank: async (questionBank: { description?: string, standard_id: string, subject_id: string }, token?: string): Promise<ApiResponse<QuestionBank>> => {
+    try {
+      const response = await fetch(`${API_URL}/question-banks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify(questionBank)
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Create question bank error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
   }
 };

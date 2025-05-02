@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Select } from '../components/ui';
+import { API_URL } from '../utils/api/utils';
 
 // Interfaces
 interface QuestionBank {
@@ -36,8 +37,8 @@ export const QuestionBanks: React.FC = () => {
       if (!token) return;
       try {
         const [sRes, subjRes] = await Promise.all([
-          fetch('/api/curriculum/standards', { headers: { Authorization: `Bearer ${token}` } }),
-          fetch('/api/curriculum/subjects', { headers: { Authorization: `Bearer ${token}` } })
+          fetch(`${API_URL}/curriculum/standards`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/curriculum/subjects`, { headers: { Authorization: `Bearer ${token}` } })
         ]);
         if (sRes.ok && subjRes.ok) {
           setStandards(await sRes.json());
@@ -59,7 +60,7 @@ export const QuestionBanks: React.FC = () => {
       const params = new URLSearchParams();
       if (filterStandard) params.append('standard_id', filterStandard);
       if (filterSubject) params.append('subject_id', filterSubject);
-      const res = await fetch(`/api/question-banks?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch(`${API_URL}/question-banks?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) throw new Error('Failed to load');
       const data: QuestionBank[] = await res.json();
       setBanks(data);
@@ -131,7 +132,7 @@ export const QuestionBanks: React.FC = () => {
                       <button onClick={() => navigate(`/question-banks/${bank.id}/edit`)} className="text-yellow-600 hover:text-yellow-900">Edit</button>
                       <button onClick={async () => {
                         if (confirm('Delete this bank?')) {
-                          await fetch(`/api/question-banks/${bank.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                          await fetch(`${API_URL}/question-banks/${bank.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                           fetchBanks();
                         }
                       }} className="text-red-600 hover:text-red-900">Delete</button>

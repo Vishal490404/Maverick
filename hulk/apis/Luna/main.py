@@ -97,7 +97,7 @@ async def create_question_bank(
         "question_ids": [],
         "created_at": datetime.now(),
         "updated_at": datetime.now(),
-        "created_by": current_user.id
+        "created_by": current_user.username  # Changed from current_user.id to current_user.username
     }
     
     db.question_banks.insert_one(new_bank)
@@ -135,11 +135,11 @@ async def get_question_banks(
         
         # Get standard name
         standard = curriculum_db.standards.find_one({"id": bank["standard_id"]})
-        bank["standard_name"] = standard.get("name") if standard else "Unknown Standard"
+        bank["standard_name"] = str(standard.get("name", "Unknown Standard")) if standard else "Unknown Standard"
         
         # Get subject name
         subject = curriculum_db.subjects.find_one({"id": bank["subject_id"]})
-        bank["subject_name"] = subject.get("name") if subject else "Unknown Subject"
+        bank["subject_name"] = str(subject.get("name", "Unknown Subject")) if subject else "Unknown Subject"
     
     return banks
 
@@ -162,10 +162,10 @@ async def get_question_bank(
     curriculum_db = get_curriculum_db()
     
     standard = curriculum_db.standards.find_one({"id": bank["standard_id"]})
-    bank["standard_name"] = standard.get("name") if standard else "Unknown Standard"
+    bank["standard_name"] = str(standard.get("name", "Unknown Standard")) if standard else "Unknown Standard"
     
     subject = curriculum_db.subjects.find_one({"id": bank["subject_id"]})
-    bank["subject_name"] = subject.get("name") if subject else "Unknown Subject"
+    bank["subject_name"] = str(subject.get("name", "Unknown Subject")) if subject else "Unknown Subject"
     
     bank["question_count"] = len(bank.get("question_ids", []))
     
