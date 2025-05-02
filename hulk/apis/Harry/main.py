@@ -9,7 +9,6 @@ from apis.Harry.models import (
     SubjectCreate, SubjectUpdate, SubjectResponse, 
     ChapterCreate, ChapterUpdate, ChapterResponse,
     TopicCreate, TopicUpdate, TopicResponse,
-    QuestionCreate, QuestionUpdate, QuestionResponse,
     QuestionTypeCreate, QuestionTypeUpdate, QuestionTypeResponse,
     TagCreate, TagUpdate, TagResponse
 )

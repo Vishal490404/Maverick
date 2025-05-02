@@ -6,6 +6,7 @@ from apis.Hermione.main import questions_router
 from apis.Ron.main import router as paper_generation_router
 from apis.Harry.main import router as curriculum_router
 from security.main import get_current_user
+from apis.Luna.main import router as question_bank_router
 
 app = FastAPI(
     title="ExamCraft API",
@@ -28,6 +29,7 @@ app.include_router(question_extractor_router)
 app.include_router(questions_router)
 app.include_router(paper_generation_router)
 app.include_router(curriculum_router)
+app.include_router(question_bank_router)
 
 # Root endpoint
 @app.get("/")

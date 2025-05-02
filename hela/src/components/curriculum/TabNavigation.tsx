@@ -64,28 +64,41 @@ const tabs = [
 
 const TabNavigation: React.FC<TabProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="border-b border-gray-200 mb-6">
-      <nav className="flex space-x-4 overflow-x-auto" aria-label="Tabs">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => onTabChange(tab.key as typeof activeTab)}
-            className={`
-              group relative py-4 px-4 flex items-center whitespace-nowrap transition-all duration-200
-              text-sm font-medium ${activeTab === tab.key 
-                ? 'text-indigo-600' 
-                : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            <span className="mr-2">{tab.icon}</span>
-            {tab.label}
-            {activeTab === tab.key && (
-              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500"></span>
-            )}
-          </button>
-        ))}
-      </nav>
+    <div className="mb-8">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="overflow-x-auto">
+          <nav className="flex" aria-label="Tabs">
+            {tabs.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => onTabChange(tab.key as typeof activeTab)}
+                className={`
+                  group relative min-w-[120px] py-5 px-6 flex flex-col items-center justify-center text-center
+                  transition-all duration-200 first:rounded-l-xl last:rounded-r-xl
+                  ${activeTab === tab.key 
+                    ? 'bg-indigo-50 text-indigo-700 font-medium' 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }
+                `}
+              >
+                <div className={`
+                  p-2.5 rounded-full mb-2.5
+                  ${activeTab === tab.key 
+                    ? 'bg-indigo-100 text-indigo-600' 
+                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                  }
+                `}>
+                  {tab.icon}
+                </div>
+                <span className="text-sm">{tab.label}</span>
+                {activeTab === tab.key && (
+                  <span className="absolute top-0 left-0 w-full h-1 bg-indigo-600 rounded-t-xl"></span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
     </div>
   );
 };

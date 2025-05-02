@@ -6,7 +6,7 @@ import { questionApi, ScanResult } from '../utils/api';
 interface ExtractedQuestion {
   id?: string;
   question_text: string;
-  question_type_id?: string; // Changed from question_type to question_type_id to match backend
+  question_type_id?: string;
   difficulty_level: string;
   marks?: number;
   image_required: boolean;
@@ -14,7 +14,7 @@ interface ExtractedQuestion {
   chapter_id?: string;
   subject_id?: string;
   standard_id?: string;
-  tags?: string[]; // Added to match backend model
+  tags?: string[];
 }
 
 interface QuestionReviewModalProps {

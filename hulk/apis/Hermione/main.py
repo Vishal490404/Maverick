@@ -21,7 +21,7 @@ from models.question_bank_model import DifficultyLevel
 from pydantic import BaseModel, Field
 import asyncio
 import time
-from functools import wraps
+from ..Harry.db_init import get_curriculum_db
 
 # ----- QUESTION MODELS -----
 
@@ -82,15 +82,12 @@ questions_router = APIRouter(
 # Connect to MongoDB and get GridFS
 def get_question_db():
     client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"), uuidRepresentation="standard")
-    return client["question_bank"]
+    return client[os.getenv("MONOGO_QUESTION_BANK_DB")]
 
 def get_grid_fs():
     db = get_question_db()
     return GridFS(db)
 
-def get_curriculum_db():
-    client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"), uuidRepresentation="standard")
-    return client["examcraft"]
 
 @router.post("/scan-pdf", status_code=status.HTTP_200_OK)
 async def scan_pdf(
@@ -111,12 +108,6 @@ async def scan_pdf(
 
     temp_pdf_path = None
     try:
-        # Make sure rate limiter is initialized with enough permits
-        await pdf_rate_limiter.start()
-        
-        # Temporarily increase semaphore to match max concurrency
-        pdf_rate_limiter.semaphore = asyncio.Semaphore(12)
-        
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
             temp_pdf.write(await file.read())
             temp_pdf_path = temp_pdf.name
@@ -124,24 +115,58 @@ async def scan_pdf(
         combined_data = {"questions": []}
 
         with fitz.open(temp_pdf_path) as pdf_document:
+            start_time = time.time()
             num_pages = len(pdf_document)
             print(f"Processing {num_pages} pages concurrently")
-            
-            # Pre-process pages to load them before passing to tasks
             pages = [pdf_document[page_num] for page_num in range(num_pages)]
             
-            # Create tasks for concurrent processing
-            tasks = [process_page(page, page_num) for page_num, page in enumerate(pages)]
+            combined_data["questions"] = []
+            batch_size = min(4, num_pages) 
+            pages_per_minute = 13  
+            delay_between_batches = 2  
             
-            # Process pages concurrently
-            page_results = await asyncio.gather(*tasks)
+            print(f"[DEBUG] Starting PDF processing with batch size: {batch_size}")
+            print(f"[DEBUG] Rate limit: {pages_per_minute} pages/min, delay: {delay_between_batches} seconds")
             
-            # Combine all questions from all pages
-            for questions in page_results:
-                combined_data["questions"].extend(questions)
-        
-        print(f"Finished processing {num_pages} pages")     
-        # Run the final processing on the combined data
+            total_questions = 0
+            
+            # Process pages in batches
+            for i in range(0, len(pages), batch_size):
+                batch_start_time = time.time()
+                batch = pages[i:i+batch_size]
+                batch_num = i // batch_size + 1
+                total_batches = (len(pages) + batch_size - 1) // batch_size
+                
+                print(f"[DEBUG] Processing batch {batch_num}/{total_batches} - Pages {i+1} to {min(i+len(batch), len(pages))}")
+                
+                # Process batch concurrently
+                tasks = [extract_questions_from_image(page) for page in batch]
+                batch_results = await asyncio.gather(*tasks)
+                
+                # Process results
+                batch_questions = 0
+                for result in batch_results:
+                    if result and "questions" in result:
+                        batch_questions += len(result["questions"])
+                        combined_data["questions"].extend(result["questions"])
+                
+                total_questions += batch_questions
+                batch_end_time = time.time()
+                batch_duration = batch_end_time - batch_start_time
+                
+                print(f"[DEBUG] Batch {batch_num} complete - Processed {len(batch)} pages in {batch_duration:.2f}s")
+                print(f"[DEBUG] Extracted {batch_questions} questions from this batch (Total: {total_questions})")
+                
+                # Apply minimal rate limiting if there are more pages to process
+                if i + batch_size < len(pages):
+                    print(f"[DEBUG] Rate limiting: Waiting {delay_between_batches}s before next batch")
+                    await asyncio.sleep(delay_between_batches)
+            
+            total_duration = time.time() - start_time
+            print(f"[DEBUG] PDF processing complete - Total time: {total_duration:.2f}s")
+            print(f"[DEBUG] Extracted {total_questions} questions from {num_pages} pages")
+            print(f"[DEBUG] Average processing time per page: {total_duration/num_pages:.2f}s")
+                    
         combined_data = get_checked_from_openai_response(combined_data)
         return combined_data
 
@@ -350,12 +375,8 @@ async def create_question(
         "chapter_id": chapter["id"],
         "subject_id": subject["id"],
         "standard_id": standard["id"],
-        "images": []  # Initialize with empty list
+        "images": []  
     }
-    
-    # Handle options field for multiple choice questions
-    if question_type["name"].lower() in ["multiple_choice", "true_false"]:
-        question_dict["options"] = []  # Initialize with empty list
     
     # Handle image upload if provided
     if image and image.filename:
@@ -422,8 +443,7 @@ async def get_question_image(
     
     question_db = get_question_db()
     fs = get_grid_fs()
-    
-    # Check if question exists
+
     question = question_db.questions.find_one({"id": question_id})
     if not question:
         raise HTTPException(
@@ -431,7 +451,6 @@ async def get_question_image(
             detail="Question not found"
         )
     
-    # Check if image ID is associated with the question
     question_images = question.get("images", [])
     if str(image_uuid) not in [str(img) for img in question_images]:
         raise HTTPException(
@@ -439,27 +458,42 @@ async def get_question_image(
             detail="Image not found for this question"
         )
     
-    # Find the file in GridFS
     file = fs.find_one({"file_id": str(image_uuid)})
     if not file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not found in storage"
         )
-    
-    # Return file contents
-    grid_out = fs.get(file._id)
-    return StreamingResponse(
-        grid_out,
-        media_type=grid_out.metadata.get('content_type', 'image/jpeg')
-    )
+    try:
+        grid_out = fs.get(file._id)
+        if not grid_out:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Failed to retrieve image data"
+            )
+            
+        # Get content type with safe fallback
+        content_type = 'image/jpeg'
+        if hasattr(grid_out, 'metadata') and grid_out.metadata:
+            content_type = grid_out.metadata.get('content_type', 'image/jpeg')
+            
+        return StreamingResponse(
+            grid_out,
+            media_type=content_type
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving image: {str(e)}"
+        )
 
 class Question(BaseModel):
     question_text: str
     image_required: bool
 def sanitize_latex(response_text):
     if isinstance(response_text, str):
-        return re.sub(r'(?<=\$)(.*?)(?=\$)', lambda m: m.group(1).replace("\\", "\\\\"), response_text)
+        response_text = re.sub(r'\\(?!")', r'\\\\', response_text)
+        return response_text
     return response_text
 
 def get_checked_from_openai_response(response_text):
@@ -468,8 +502,6 @@ def get_checked_from_openai_response(response_text):
                 base_url=os.environ["OPENAI_API_BASE"],
                 api_key=os.environ["GITHUB_TOKEN"],
         )
-        
-        # If response_text is already a dictionary, convert it to JSON string
         if isinstance(response_text, dict):
             input_json = json.dumps(response_text)
         else:
@@ -479,44 +511,44 @@ def get_checked_from_openai_response(response_text):
         You are a LaTeX expert with deep knowledge of formatting content in JSON. 
         Your task is to fix LaTeX syntax in the question data while maintaining valid JSON structure. Strictly follow the instructions the response format
         """
-        
-        # Create user content without problematic literal JSON example in the f-string
         user_content = """
-        You are provided with a JSON object containing questions that use LaTeX syntax. Your task is to sanitize and correct the LaTeX content while preserving the original JSON structure.
+        Your task is to sanitize and correct the LaTeX content while preserving the original JSON structure.
 
         Instructions:
-        1. **Fix LaTeX Syntax**:
+        1. Fix LaTeX Syntax:
         - Ensure all LaTeX expressions compile correctly on the frontend.
         - Replace \\n with \\newline
-        
-        2. **Content Cleanup**:
+        2. Content Cleanup:
         - Remove any images, diagrams, tables, or flowcharts embedded in the `question_text`.
         - If a question refers to an image or diagram, remove that reference.
-        
-        3. **JSON Structure**:
+        3. JSON Structure:
         - Ensure LaTeX formatting is correctly applied in the `question_text`.
         - Maintain the `"image_required"` field, ensuring it's set to `true` for questions that require a diagram and `false` for others.
-
-        4. **Final Output**:
+        4. Final Output:
         - Should not include text like "Answer the following questions" or "Solve any four of the following". or "Fill in the blanks and complete the sentences", just separate those sub-questions into different question_texts or objects of the JSON.
-        
         For Example, transform this:
-        {"questions": [{"question_text": "1) The \\dots is an important method of geography.\\newline 2) \\dots city is the IT centre in India.\\newline 3) Somali current is in the \\dots ocean.\\newline 4) \\dots is the main occupation in the village.", "image_required": false}]}
-        
+        {"questions": [{"question_text": "1) The \\dots is an important method of geography.\\newline 2) \\dots city is the IT centre in India.}]}
+
         Into this format:
-        {"questions": [{"question_text": "1) The \\dots is an important method of geography.", "image_required": false}, {"question_text": "2) \\dots city is the IT centre in India.", "image_required": false}, {"question_text": "3) Somali current is in the \\dots ocean.", "image_required": false}, {"question_text": "4) \\dots is the main occupation in the village.", "image_required": false}]}
-        
-        - Return the corrected JSON object with properly formatted LaTeX content, ensuring no syntax errors or missing fields.
+        {"questions": [{"question_text": "1) The \\dots is an important method of geography.", "image_required": false}, {"question_text": "2) \\dots city is the IT centre in India.", "image_required": false}]}
+
+        Similarly, transform this:
+        {"questions": [{"question_text": "Give the comparative and superlative forms of: \\\\newline Positive: ______ \\\\newline Comparative: ______ \\\\newline Superlative: ______ \\\\newline excited}]}
+
+        Into this format:
+        {"questions": [{"question_text": "Give the comparative and superlative forms of: \\\\newline Positive: \\dots \\\\newline Comparative: \\dots \\\\newline Superlative: \\dots \\\\newline excited", "image_required": false}]}
+        - Don't change image_required field.
+        - If any improvements are required like adding some missing fields, please do that. Don't change the question.
+        - If some underscores are required for fillups please do with proper LaTeX formatting.
+        - Don't keep any question numbers or marks in the question_text.
 
         Here is the JSON object to process:
         """
         
-        # Add the input JSON separately to avoid format string issues
         user_content = user_content + input_json
 
-        # Use OpenAI API to process the extracted questions
         response = client.chat.completions.create(
-            model=get_openai_model(),  # Using fallback mechanism
+            model=get_openai_model(),
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": user_content},
@@ -561,14 +593,25 @@ def get_checked_from_openai_response(response_text):
     return {"questions": []}
 
 
-# Function to extract questions from image
-async def extract_questions_from_image(image):
-    
+async def extract_questions_from_image(image_data):
     try:
-        # Initialize Gemini model with vision capabilities
         model = genai.GenerativeModel('gemini-2.0-flash')
         
-        # Prepare the prompt for question extraction - optimized for structured question papers
+        page_id = None
+        if isinstance(image_data, fitz.Page):
+            page_id = f"Page {image_data.number+1}"
+            print(f"[DEBUG] Starting processing of {page_id}")
+            pix = image_data.get_pixmap()
+            img_data = pix.tobytes("png")
+            pil_img = Image.open(BytesIO(img_data))
+            image_to_process = pil_img
+        else:
+            page_id = "Image"
+            print(f"[DEBUG] Starting processing of uploaded {page_id}")
+            image_to_process = image_data
+        
+        page_start_time = time.time()
+        
         prompt = """
         You are an expert at extracting questions from educational question papers and exam sheets. The image you are processing contains a structured question paper with multiple questions.
 
@@ -610,7 +653,10 @@ async def extract_questions_from_image(image):
         - The `"image_required"` field indicates whether a diagram or image is needed to answer the question.
 
         """
-        response = model.generate_content([prompt, image], stream=False )
+        print(f"[DEBUG] Sending {page_id} to Gemini API...")
+        response = model.generate_content([prompt, image_to_process], stream=False)
+        print(f"[DEBUG] Received response from Gemini API for {page_id} after {time.time() - page_start_time:.2f}s")
+        
         response_text = sanitize_latex(response.text)
         if "```json" in response_text:
             json_start = response_text.find("```json") + 7
@@ -631,143 +677,29 @@ async def extract_questions_from_image(image):
                         question.question_text = question.question_text.strip()
                         validated_questions.append(question.model_dump())
                     except json.JSONDecodeError as ve:
-                        print(f"Validation error for question: {ve}")
+                        print(f"[ERROR] Validation error for question in {page_id}: {ve}")
+                
+                question_count = len(validated_questions)
+                print(f"[DEBUG] Successfully extracted {question_count} questions from {page_id} in {time.time() - page_start_time:.2f}s")
                 return {"questions": validated_questions}
             
         except json.JSONDecodeError as e:
-            print(f"Error parsing JSON from image: {str(e)}")
-            print(f"Response text was: {response_text[:200]}...")
+            print(f"[ERROR] Error parsing JSON from {page_id}: {str(e)}")
+            print(f"[ERROR] Response text from {page_id} was: {response_text[:100]}...")
             return {"questions": []}
             
     except Exception as e:
-        print(f"Error processing image: {str(e)}")
+        page_id_info = f"{page_id} " if page_id else ""
+        print(f"[ERROR] Error processing {page_id_info}image: {str(e)}")
         return {"questions": []}
 
-# Rate limiter class for API requests
-class RateLimiter:
-    def __init__(self, max_calls=12, period=60):
-        """
-        Initialize a rate limiter that allows max_calls in period seconds.
-        Default: 12 calls per minute (60 seconds)
-        """
-        self.max_calls = max_calls
-        self.period = period
-        self.calls = []
-        self.lock = asyncio.Lock()
-        
-        # Semaphore to control concurrent access (allows up to max_calls concurrent operations)
-        self.semaphore = asyncio.Semaphore(max_calls)
-        
-        # Start a background task to replenish tokens
-        self.replenish_task = None
-    
-    async def start(self):
-        """Start the token replenishment background task"""
-        if self.replenish_task is None:
-            self.replenish_task = asyncio.create_task(self._replenish_tokens())
-    
-    async def stop(self):
-        """Stop the token replenishment background task"""
-        if self.replenish_task:
-            self.replenish_task.cancel()
-            try:
-                await self.replenish_task
-            except asyncio.CancelledError:
-                pass
-            self.replenish_task = None
-    
-    async def _replenish_tokens(self):
-        """Background task that releases semaphore permits over time"""
-        try:
-            while True:
-                # Sleep for the time needed to allow one more call within the period
-                await asyncio.sleep(self.period / self.max_calls)
-                
-                # Try to release a token if needed
-                async with self.lock:
-                    now = time.time()
-                    self.calls = [t for t in self.calls if now - t <= self.period]
-                    
-                    # If we have capacity for more calls
-                    if len(self.calls) < self.max_calls:
-                        # Try to increase the semaphore count if it's not at max
-                        if self.semaphore._value < self.max_calls:
-                            self.semaphore._value += 1
-                            
-        except asyncio.CancelledError:
-            # Clean exit when the task is cancelled
-            raise
-        except Exception as e:
-            print(f"Error in token replenishment: {str(e)}")
-    
-    async def acquire(self):
-        """
-        Acquire permission to make a call.
-        Returns immediately if under rate limit, or waits for a token if at the limit.
-        """
-        # Ensure the replenishment task is running
-        await self.start()
-        
-        # Wait for a semaphore permit
-        await self.semaphore.acquire()
-        
-        # Record this call 
-        async with self.lock:
-            self.calls.append(time.time())
-        
-        return True
-    
-    async def release(self):
-        """Release the permit when done"""
-        self.semaphore.release()
-
-# Create global rate limiter instance for PDF processing
-pdf_rate_limiter = RateLimiter(max_calls=12, period=60)  # 12 requests per minute
-
-# Helper function to process a single page with rate limiting
-async def process_page(page, page_num):
-    """Process a single page from the PDF with rate limiting"""
-    start_time = time.time()
-    print(f"Starting to process page {page_num + 1} at {datetime.now().strftime('%H:%M:%S.%f')}")
-    try:
-        # Acquire a permit from the rate limiter - this will be immediate if under the rate limit
-        # or will wait for a permit to become available if at the rate limit
-        await pdf_rate_limiter.acquire()
-        
-        # Process the page once we have a permit
-        pix = page.get_pixmap(dpi=300)
-        image_bytes = pix.tobytes("png")
-        page_image = Image.open(BytesIO(image_bytes))
-        
-        # Process the page
-        page_data = await extract_questions_from_image(page_image)
-        end_time = time.time()
-        processing_time = end_time - start_time
-        # print(f"Successfully processed page {page_num + 1} in {processing_time:.2f} seconds at {datetime.now().strftime('%H:%M:%S.%f')}")
-        return page_data.get("questions", [])
-    except Exception as e:
-        print(f"Error processing page {page_num + 1}: {str(e)}")
-        return []
-    finally:
-        # Make sure to release the permit when done, even if there was an error
-        await pdf_rate_limiter.release()
 
 def get_openai_model(preferred_model="gpt-4o"):
-    """
-    Returns the appropriate OpenAI model, implementing fallback logic if needed.
-    Tracks usage to prevent exceeding daily limits.
-    """
     if not hasattr(get_openai_model, "usage_counter"):
         get_openai_model.usage_counter = {}
-    
-    # Initialize counter for the preferred model if it doesn't exist
     if preferred_model not in get_openai_model.usage_counter:
         get_openai_model.usage_counter[preferred_model] = 0
-    
-    # Model tiers from most capable to least capable
     model_tiers = ["gpt-4o", "gpt-4o-mini"]
-    
-    # Model daily limits (adjust based on your OpenAI plan)
     model_limits = {
         "gpt-4o": 50,  
         "gpt-4o-mini": 50
