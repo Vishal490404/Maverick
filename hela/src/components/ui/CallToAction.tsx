@@ -10,7 +10,7 @@ const CallToAction = () => {
         </p>
         <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-3">
           <a 
-            href="#" 
+            href="dashboard" 
             className="inline-flex items-center justify-center px-5 py-3 border border-transparent text-base font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 shadow-sm hover:shadow transition-all"
           >
             Create Your First Paper

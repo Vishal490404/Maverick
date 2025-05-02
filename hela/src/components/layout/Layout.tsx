@@ -19,6 +19,7 @@ const Layout = ({ children }: LayoutProps) => {
                           location.pathname.startsWith('/papers') ||
                           location.pathname.startsWith('/settings') ||
                           location.pathname.startsWith('/curriculum') ||
+                          location.pathname.startsWith('/create') ||  // Added create path for PaperCreation
                           location.pathname.startsWith('/signup'); // Added signup to dashboard layout
   
   // Don't show footer in dashboard layout

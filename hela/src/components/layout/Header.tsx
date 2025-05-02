@@ -171,7 +171,7 @@ const Header = () => {
               {isAuthenticated && (
                 <Link 
                   to="/dashboard"
-                  className="inline-flex items-center px-4 py-1.5 border-b-2 text-sm font-medium bg-indigo-50 text-indigo-700 rounded-t-md hover:bg-indigo-100 transition-colors duration-200 border-indigo-500"
+                  className="inline-flex items-center px-4 py-1.5 border-b-2 text-sm font-medium  rounded-t-md hover:bg-indigo-100 transition-colors duration-200 border-indigo-500"
                 >
                   <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -184,11 +184,11 @@ const Header = () => {
           
           {/* User menu (desktop) */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {isAuthenticated ? (
+            {isAuthenticated && (
               <div className="relative ml-3" ref={profileDropdownRef}>
                 <button 
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                  className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  onMouseEnter={() => setIsProfileOpen(true)}
+                  className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   <span className="sr-only">Open user menu</span>
                   <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -196,8 +196,8 @@ const Header = () => {
                       {user?.full_name?.charAt(0) || user?.username?.charAt(0) || '?'}
                     </span>
                   </div>
+                  <span className="ml-2 p-2 text-blue-600 font-medium">{user?.username}</span>
                 </button>
-                
                 {isProfileOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                     <div className="block px-4 py-2 text-sm text-gray-700 border-b border-gray-100">
@@ -230,7 +230,8 @@ const Header = () => {
                   </div>
                 )}
               </div>
-            ) : (
+            )}
+            {!isAuthenticated && (
               <Link to="/signin" className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-md text-sm font-medium shadow-sm hover:shadow transition-all">
                 Sign In
               </Link>

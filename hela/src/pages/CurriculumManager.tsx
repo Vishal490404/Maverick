@@ -630,6 +630,24 @@ const CurriculumManager: React.FC = () => {
     }
   };
 
+  const handleAddClick = () => {
+    if (isParentMissing()) {
+      setError(`Cannot create ${getEntityName().toLowerCase()} without at least one parent entity.`);
+      return;
+    }
+    resetForm();
+    setShowForm(true);
+  };
+
+  const isParentMissing = (): boolean => {
+    switch (activeTab) {
+      case 'subjects': return standards.length === 0;
+      case 'chapters': return subjects.length === 0;
+      case 'topics': return chapters.length === 0;
+      default: return false;
+    }
+  };
+
   // Handle notification close
   const handleNotificationClose = () => {
     setSuccess(null);
@@ -650,9 +668,9 @@ const CurriculumManager: React.FC = () => {
                 Create, organize, and manage your entire curriculum hierarchy in one central location.
               </p>
             </div>
-            <div className="mt-4 md:mt-0 flex-shrink-0">
+            {/* <div className="mt-4 md:mt-0 flex-shrink-0">
               <button
-                onClick={() => { resetForm(); setShowForm(true); }}
+                onClick={handleAddClick}
                 className="inline-flex items-center px-5 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
               >
                 <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -660,7 +678,7 @@ const CurriculumManager: React.FC = () => {
                 </svg>
                 Add {getEntityName()}
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -697,7 +715,7 @@ const CurriculumManager: React.FC = () => {
               {/* Quick Actions */}
               <div className="flex space-x-3 flex-shrink-0">
                 <button
-                  onClick={() => { resetForm(); setShowForm(true); }}
+                  onClick={handleAddClick}
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
                 >
                   <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -725,7 +743,7 @@ const CurriculumManager: React.FC = () => {
               hierarchyInfo={getHierarchyInfo()}
               parentSelectionRequired={isParentSelectionRequired()}
               hasParentSelected={!!getCurrentParentSelection()}
-              onAddClick={() => { resetForm(); setShowForm(true); }}
+              onAddClick={handleAddClick}
               onEditClick={handleEditClick}
               onDeleteClick={handleDeleteClick}
               activeTab={activeTab}

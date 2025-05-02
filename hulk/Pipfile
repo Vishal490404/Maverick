@@ -27,4 +27,4 @@ httpx = "*"
 pytest-cov = "*"
 
 [requires]
-python_version = "3.12"
+python_version = "3.10.12"

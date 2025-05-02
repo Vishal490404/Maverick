@@ -18,9 +18,18 @@ const Sidebar = () => {
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
   
-  // Handle clicking outside of profile menu to close it
+  // Handle clicking outside of sidebar to collapse it
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
+      // Collapse sidebar when clicking outside, but not during navigation
+      if (sidebarRef.current && 
+          !sidebarRef.current.contains(event.target as Node) && 
+          !isCollapsed && 
+          !localStorage.getItem('manualToggle')) {
+        setIsCollapsed(true);
+      }
+      
+      // Also handle profile menu closing
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
       }
@@ -28,7 +37,13 @@ const Sidebar = () => {
     
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [isCollapsed]);
+  
+  // Reset manualToggle on location change
+  useEffect(() => {
+    // Clear any existing manualToggle when location changes
+    localStorage.removeItem('manualToggle');
+  }, [location.pathname]);
 
   // Added to persist collapsed state in localStorage
   useEffect(() => {
@@ -57,6 +72,12 @@ const Sidebar = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
     localStorage.setItem('sidebarCollapsed', String(newState));
+    // Set a flag to indicate manual toggle
+    localStorage.setItem('manualToggle', 'true');
+    // Clear the flag after 2 seconds to re-enable hover behavior
+    setTimeout(() => {
+      localStorage.removeItem('manualToggle');
+    }, 2000);
   };
 
   // Handle profile menu mouse events
@@ -72,6 +93,21 @@ const Sidebar = () => {
     logout();
     setShowProfileMenu(false);
     navigate('/');
+  };
+
+  // Handle sidebar expand/collapse on hover
+  const handleSidebarMouseEnter = () => {
+    // Only expand via hover if user hasn't manually toggled
+    if (!localStorage.getItem('manualToggle')) {
+      setIsCollapsed(false);
+    }
+  };
+
+  const handleSidebarMouseLeave = () => {
+    // Only collapse via hover if user hasn't manually toggled
+    if (!localStorage.getItem('manualToggle')) {
+      setIsCollapsed(true);
+    }
   };
   
   const navigation: NavItem[] = [
@@ -94,15 +130,6 @@ const Sidebar = () => {
       )
     },
     {
-      name: 'Create Question',
-      path: '/questions/create',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-      )
-    },
-    {
       name: 'Question Banks',
       path: '/question-banks',
       icon: (
@@ -113,7 +140,7 @@ const Sidebar = () => {
     },
     {
       name: 'Create Paper',
-      path: '/papers/create',
+      path: '/create',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -179,12 +206,45 @@ const Sidebar = () => {
     return false;
   };
 
+  // Added logic to show 'Create Question' in Question Bank
+  useEffect(() => {
+    const showCreateQuestion = () => {
+      const createQuestionNavItem: NavItem = {
+        name: 'Create Question',
+        path: '/questions/create',
+        icon: (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        )
+      };
+
+      // Add 'Create Question' to navigation temporarily
+      navigation.push(createQuestionNavItem);
+
+      // Remove it after a delay (e.g., 5 seconds)
+      setTimeout(() => {
+        const index = navigation.findIndex(item => item.name === 'Create Question');
+        if (index !== -1) {
+          navigation.splice(index, 1);
+        }
+      }, 5000);
+    };
+
+    // Call this function when navigating to Question Bank
+    if (location.pathname === '/question-banks') {
+      showCreateQuestion();
+    }
+  }, [location.pathname]);
+
   return (
     <div 
       ref={sidebarRef}
       className={`${
         isCollapsed ? 'w-20' : 'w-64'
       } h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col fixed md:static inset-y-0 left-0 z-40`}
+      onMouseEnter={handleSidebarMouseEnter}
+      onMouseLeave={handleSidebarMouseLeave}
     >
       {/* Logo and Brand - Add keyboard shortcut hint */}
       <div 
@@ -214,6 +274,14 @@ const Sidebar = () => {
               <Link
                 key={item.name}
                 to={item.path}
+                onClick={() => {
+                  // Set manualToggle flag temporarily
+                  localStorage.setItem('manualToggle', 'true');
+                  // Clear the flag after a short delay to re-enable hover behavior
+                  setTimeout(() => {
+                    localStorage.removeItem('manualToggle');
+                  }, 1000);
+                }}
                 className={`${
                   isPathActive(item.path)
                     ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-500'
