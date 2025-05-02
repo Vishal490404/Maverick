@@ -994,77 +994,74 @@ const PaperCreation = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex-1 overflow-y-auto bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-            <div className="mb-6 sm:mb-10">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Generate Question Paper</h1>
-              <p className="mt-2 text-sm sm:text-base text-gray-600">
-                Create your perfect question paper by selecting custom options or generating randomly.
-              </p>
-            </div>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="mb-6 sm:mb-10">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Generate Question Paper</h1>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">
+            Create your perfect question paper by selecting custom options or generating randomly.
+          </p>
+        </div>
 
-            <div className="bg-white rounded-lg shadow mb-6">
-              <div className="px-4 py-5 sm:p-6">
-                {renderProgressSteps()}
-                
-                {/* Loading Overlay */}
-                {isLoading && (
-                  <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="flex flex-col items-center">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                      <p className="mt-2 text-sm text-gray-600">Loading...</p>
-                    </div>
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="px-4 py-5 sm:p-6">
+            {renderProgressSteps()}
+            
+            {/* Error Display */}
+            {error && (
+              <div className="mb-4 p-4 rounded-md bg-red-50 border border-red-200">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
                   </div>
-                )}
-
-                {/* Error Display */}
-                {error && (
-                  <div className="mb-4 p-4 rounded-md bg-red-50 border border-red-200">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
-                      </div>
-                      <div className="ml-3">
-                        <p className="text-sm text-red-700">{error}</p>
-                      </div>
-                    </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
                   </div>
-                )}
+                </div>
+              </div>
+            )}
 
-                {/* Step content */}
-                <div className="relative">
+            {/* Step content with min-height to prevent layout shift during loading */}
+            <div className="relative min-h-[400px]">
+              {isLoading ? (
+                <div className="absolute inset-0 flex justify-center items-center">
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                    <p className="mt-2 text-sm text-gray-600">Loading...</p>
+                  </div>
+                </div>
+              ) : (
+                <>
                   {currentStep === 'selection' && renderSelectionStep()}
                   {currentStep === 'basicInfo' && renderBasicInfoStep()}
                   {currentStep === 'chapters' && renderChaptersStep()}
                   {currentStep === 'questions' && renderQuestionsStep()}
                   {currentStep === 'review' && renderReviewStep()}
-                </div>
-                
-                {/* Action footer */}
-                <div className="mt-8 pt-5 border-t border-gray-200 flex justify-between items-center">
-                  <a
-                    href="/dashboard"
-                    onClick={handleDashboardClick}
-                    className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
-                  >
-                    Back to Dashboard
-                  </a>
-                  
-                  <Link
-                    to="#"
-                    className="text-sm text-gray-600 hover:text-indigo-500 font-medium flex items-center"
-                  >
-                    <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H4.828c-1.782 0-2.674 2.154-1.414 3.414l5 5A2 2 0 009 10.172V5L8 4z" />
-                    </svg>
-                    View Paper Templates
-                  </Link>
-                </div>
-              </div>
+                </>
+              )}
+            </div>
+            
+            {/* Action footer */}
+            <div className="mt-8 pt-5 border-t border-gray-200 flex justify-between items-center">
+              <a
+                href="/dashboard"
+                onClick={handleDashboardClick}
+                className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+              >
+                Back to Dashboard
+              </a>
+              
+              <Link
+                to="#"
+                className="text-sm text-gray-600 hover:text-indigo-500 font-medium flex items-center"
+              >
+                <svg className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2H4.828c-1.782 0-2.674 2.154-1.414 3.414l5 5A2 2 0 009 10.172V5L8 4z" />
+                </svg>
+                View Paper Templates
+              </Link>
             </div>
           </div>
         </div>

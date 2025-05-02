@@ -7,9 +7,11 @@ import Dashboard from './pages/Dashboard';
 import PaperCreation from './pages/PaperCreation';
 import CurriculumManager from './pages/CurriculumManager';
 import CreateQuestion from './pages/CreateQuestion';
+import QuestionBanks from './pages/QuestionBank';
 import ManualQuestionForm from './pages/ManualQuestionForm';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AddQuestionBank  from './pages/AddQuestionBank';
 
 // Added placeholder components for coming soon pages
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -67,7 +69,7 @@ function App() {
 
             {/* Question routes */}
             <Route 
-              path="/questions/create" 
+              path="/question-banks/create" 
               element={
                 <ProtectedRoute>
                   <CreateQuestion />
@@ -86,14 +88,14 @@ function App() {
               path="/question-banks" 
               element={
                 <ProtectedRoute>
-                  <QuestionBanksPage />
+                  <QuestionBanks />
                 </ProtectedRoute>
               } 
             />
             
             {/* Paper routes */}
             <Route 
-              path="/papers/create" 
+              path="/create" 
               element={
                 <ProtectedRoute>
                   <PaperCreation />
@@ -128,7 +130,15 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-
+            {/* Add Question Bank */}
+            <Route 
+              path="/question-banks/add" 
+              element={
+                <ProtectedRoute>
+                  <AddQuestionBank />
+                </ProtectedRoute>
+              }
+            />
             {/* Catch all route for 404s */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
