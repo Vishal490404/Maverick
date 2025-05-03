@@ -16,6 +16,31 @@ const Notification: React.FC<NotificationProps> = ({
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(100);
   
+  // Format the message - sometimes backend errors come as objects or complex strings
+  const formatErrorMessage = (msg: string | null): string => {
+    if (!msg) return '';
+    
+    try {
+      // Check if message is a JSON string
+      if (msg.startsWith('{') && msg.endsWith('}')) {
+        const parsed = JSON.parse(msg);
+        if (parsed.message) return parsed.message;
+        if (parsed.error) return parsed.error;
+        if (typeof parsed === 'object') {
+          return Object.values(parsed).join(', ');
+        }
+      }
+      
+      // Return plain message
+      return msg;
+    } catch (e) {
+      // If parsing fails, return original message
+      return msg;
+    }
+  };
+  
+  const formattedMessage = formatErrorMessage(message);
+  
   useEffect(() => {
     if (message) {
       setIsVisible(true);
@@ -94,7 +119,7 @@ const Notification: React.FC<NotificationProps> = ({
             <h3 className={`font-medium ${styles.text}`}>
               {type === 'success' ? 'Success!' : 'Error'}
             </h3>
-            <p className={`text-sm ${styles.text} opacity-90 mt-1 pr-6`}>{message}</p>
+            <p className={`text-sm ${styles.text} opacity-90 mt-1 pr-6`}>{formattedMessage}</p>
           </div>
           <div className="ml-2">
             <button

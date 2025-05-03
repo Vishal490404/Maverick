@@ -119,8 +119,8 @@ const ItemCardGrid: React.FC<ItemCardGridProps> = ({
           return (
             <div 
               key={item.id} 
-              className={`bg-white rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
-                isTag ? 'border-t-[6px]' : ''
+              className={`bg-white border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
+                isTag ? 'border-t-[6px] rounded-t-lg' : 'rounded-xl'
               }`}
               style={isTag ? { borderTopColor: tagColor } : {}}
             >

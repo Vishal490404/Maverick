@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { questionApi, curriculumApi } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
-import { Standard, Subject } from '../utils/api/types';
+import { Standard, Subject, QuestionBank } from '../utils/api/types';
+import { API_URL } from '../utils/api/utils';
 
 const AddQuestionBank: React.FC = () => {
+  const { bankId } = useParams<{ bankId: string }>();
   const [description, setDescription] = useState('');
   const [standardId, setStandardId] = useState('');
   const [subjectId, setSubjectId] = useState('');
@@ -12,24 +14,63 @@ const AddQuestionBank: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [standards, setStandards] = useState<Standard[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [isEdit, setIsEdit] = useState<boolean>(false);
   
   const navigate = useNavigate();
   const { token } = useAuth();
 
-  // Load standards on component mount
+  // Load standards on component mount and check if we're editing
   useEffect(() => {
     if (token) {
       fetchStandards();
+      
+      // Check if we're in edit mode
+      if (bankId) {
+        setIsEdit(true);
+        fetchBankDetails();
+      }
     }
-  }, [token]);
+  }, [token, bankId]);
 
   // Load subjects when standard changes
   useEffect(() => {
     if (standardId && token) {
       fetchSubjects(standardId);
-      setSubjectId('');
+      if (!isEdit) {
+        setSubjectId('');
+      }
     }
-  }, [standardId, token]);
+  }, [standardId, token, isEdit]);
+
+  // Fetch bank details if in edit mode
+  const fetchBankDetails = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/question-banks/${bankId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to load question bank details');
+      }
+      
+      const bank: QuestionBank = await response.json();
+      
+      // Set form fields
+      setDescription(bank.description || '');
+      setStandardId(bank.standard_id);
+      
+      // Fetch subjects for this standard, then set the subject
+      await fetchSubjects(bank.standard_id);
+      setSubjectId(bank.subject_id);
+      
+    } catch (err: any) {
+      console.error('Error fetching bank details:', err);
+      setError(err?.message || 'Failed to load question bank details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Fetch standards
   const fetchStandards = async () => {
@@ -79,31 +120,67 @@ const AddQuestionBank: React.FC = () => {
     }
 
     try {
-      const response = await questionApi.createQuestionBank({ 
-        description, 
-        standard_id: standardId,
-        subject_id: subjectId 
-      }, token);
+      let response;
       
-      if (response.error) {
-        setError(response.error);
+      if (isEdit) {
+        // Update existing question bank
+        response = await fetch(`${API_URL}/question-banks/${bankId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ description })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to update question bank');
+        }
       } else {
-        navigate('/question-banks');
+        // Create new question bank
+        response = await questionApi.createQuestionBank({ 
+          description, 
+          standard_id: standardId,
+          subject_id: subjectId 
+        }, token);
+        
+        if (response.error) {
+          setError(response.error);
+          setIsLoading(false);
+          return;
+        }
       }
+      
+      // Redirect back to question banks list
+      navigate('/question-banks');
+      
     } catch (err: any) {
-      console.error('Error creating question bank:', err);
-      setError(err?.message || 'An error occurred while creating the question bank.');
+      console.error('Error saving question bank:', err);
+      setError(err?.message || 'An error occurred while saving the question bank.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen pt-6 pb-12 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Add New Question Bank</h1>
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
-          <div className="mb-6 p-4 bg-blue-50 rounded-md border border-blue-100">
+    <div className="p-3 sm:p-6 md:p-8">
+      {/* Page header with responsive text sizes */}
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">
+          {isEdit ? 'Edit Question Bank' : 'Add New Question Bank'}
+        </h1>
+        <p className="mt-1 text-xs sm:text-sm text-gray-500">
+          {isEdit 
+            ? 'Update the details of this question bank.' 
+            : 'Create a new question bank for organizing your questions.'}
+        </p>
+      </div>
+
+      <div className="bg-white shadow-sm rounded-lg p-3 sm:p-5 md:p-6">
+        {/* Information alert - only show for new banks */}
+        {!isEdit && (
+          <div className="mb-6 p-3 sm:p-4 bg-blue-50 rounded-md border border-blue-100">
             <div className="flex">
               <div className="flex-shrink-0">
                 <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -117,68 +194,12 @@ const AddQuestionBank: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
           
-          <div className="mb-4">
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
-              Description (Optional)
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              rows={4}
-              placeholder="Enter a description for this question bank"
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label htmlFor="standard" className="block text-sm font-medium text-gray-700 required">
-                Standard
-              </label>
-              <select
-                id="standard"
-                name="standard"
-                value={standardId}
-                onChange={(e) => setStandardId(e.target.value)}
-                required
-                className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-              >
-                <option value="">Select Standard</option>
-                {standards.map((standard) => (
-                  <option key={standard.id} value={standard.id}>
-                    {standard.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700 required">
-                Subject
-              </label>
-              <select
-                id="subject"
-                name="subject"
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                required
-                disabled={!standardId}
-                className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-              >
-                <option value="">Select Subject</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          
+        <form onSubmit={handleSubmit}>
+          {/* Error display */}
           {error && (
-            <div className="mb-4 p-4 bg-red-50 rounded-md border border-red-100">
+            <div className="mb-5 p-3 bg-red-50 rounded-md border border-red-100">
               <div className="flex">
                 <div className="flex-shrink-0">
                   <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -191,8 +212,92 @@ const AddQuestionBank: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Form fields */}
+          <div className="space-y-5">
+            {/* Description */}
+            <div>
+              <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                Description (Optional)
+              </label>
+              <textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                rows={3}
+                placeholder="Enter a description for this question bank"
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              {/* Standard - disabled in edit mode */}
+              <div>
+                <label htmlFor="standard" className="block text-sm font-medium text-gray-700 required">
+                  Standard
+                </label>
+                <select
+                  id="standard"
+                  name="standard"
+                  value={standardId}
+                  onChange={(e) => setStandardId(e.target.value)}
+                  required
+                  disabled={isEdit || isLoading}
+                  className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Standard</option>
+                  {standards.map((standard) => (
+                    <option key={standard.id} value={standard.id}>
+                      {standard.name}
+                    </option>
+                  ))}
+                </select>
+                {isEdit && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Standard cannot be changed after creation.
+                  </p>
+                )}
+              </div>
+
+              {/* Subject - disabled in edit mode */}
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-gray-700 required">
+                  Subject
+                </label>
+                <select
+                  id="subject"
+                  name="subject"
+                  value={subjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
+                  required
+                  disabled={!standardId || isEdit || isLoading}
+                  className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select Subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))}
+                </select>
+                {isEdit && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Subject cannot be changed after creation.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
           
-          <div className="flex justify-end">
+          {/* Form actions */}
+          <div className="mt-6 flex items-center justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => navigate(isEdit ? `/question-banks/${bankId}` : '/question-banks')}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -204,9 +309,9 @@ const AddQuestionBank: React.FC = () => {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Creating...
+                  {isEdit ? 'Saving...' : 'Creating...'}
                 </>
-              ) : 'Create Question Bank'}
+              ) : (isEdit ? 'Save Changes' : 'Create Question Bank')}
             </button>
           </div>
         </form>

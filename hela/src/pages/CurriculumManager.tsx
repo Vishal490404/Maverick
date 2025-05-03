@@ -655,68 +655,49 @@ const CurriculumManager: React.FC = () => {
   };
 
   return (
-    <div className="bg-gradient-to-b from-gray-50 to-gray-100 min-h-screen pb-20">
-      {/* Hero header section */}
-      <div className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold leading-tight">
-                Curriculum Manager
-              </h1>
-              <p className="mt-2 text-indigo-100 max-w-3xl">
-                Create, organize, and manage your entire curriculum hierarchy in one central location.
-              </p>
-            </div>
-            {/* <div className="mt-4 md:mt-0 flex-shrink-0">
-              <button
-                onClick={handleAddClick}
-                className="inline-flex items-center px-5 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
-              >
-                <svg className="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-                </svg>
-                Add {getEntityName()}
-              </button>
-            </div> */}
-          </div>
-        </div>
+    <div className="p-3 sm:p-6 md:p-8">
+      {/* Page header with responsive text sizes */}
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Curriculum Manager</h1>
+        <p className="mt-1 text-xs sm:text-sm text-gray-500">
+          Create, organize, and manage your entire curriculum hierarchy in one central location.
+        </p>
       </div>
       
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 -mt-8">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          {/* Tab Navigation */}
-          <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
-          
-          <div className="px-6 py-6">
-            <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
-              {/* Section Header */}
-              <div className="mb-4 md:mb-0">
-                <div className="flex items-center">
-                  <h2 className="text-xl font-medium text-gray-900 flex items-center">
-                    {getEntityName(false)}
-                  </h2>
-                  <span className="ml-3 bg-indigo-100 text-indigo-800 text-xs font-medium px-3 py-1 rounded-full">
-                    {getCurrentItems().length}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 mt-1.5 max-w-2xl">
-                  {isParentSelectionRequired() 
-                    ? `Manage ${getEntityName(false).toLowerCase()} within your curriculum hierarchy` 
-                    : activeTab === 'questionTypes'
-                      ? 'Define question formats for assessments and tests'
-                      : activeTab === 'tags'
-                        ? 'Organize content with customizable tags for better organization'
-                        : `Configure ${getEntityName(false).toLowerCase()} for your curriculum structure`
-                  }
-                </p>
+      <div className="bg-white shadow-sm rounded-lg overflow-hidden mb-4 sm:mb-6">
+        {/* Tab Navigation */}
+        <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
+        
+        <div className="p-3 sm:p-5 md:p-6">
+          <div className="mb-5 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            {/* Section Header */}
+            <div className="mb-3 sm:mb-0">
+              <div className="flex items-center">
+                <h2 className="text-base sm:text-lg font-medium text-gray-900 flex items-center">
+                  {getEntityName(false)}
+                </h2>
+                <span className="ml-3 bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-1 rounded-full">
+                  {getCurrentItems().length}
+                </span>
               </div>
-              
-              {/* Quick Actions */}
-              <div className="flex space-x-3 flex-shrink-0">
+              <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-2xl">
+                {isParentSelectionRequired() 
+                  ? `Manage ${getEntityName(false).toLowerCase()} within your curriculum hierarchy` 
+                  : activeTab === 'questionTypes'
+                    ? 'Define question formats for assessments and tests'
+                    : activeTab === 'tags'
+                      ? 'Organize content with customizable tags for better organization'
+                      : `Configure ${getEntityName(false).toLowerCase()} for your curriculum structure`
+                }
+              </p>
+            </div>
+            
+            {/* Quick Actions - Only show if we have items or if parent selection is not required */}
+            {(getCurrentItems().length > 0 || !isParentSelectionRequired() || (isParentSelectionRequired() && !!getCurrentParentSelection())) && (
+              <div className="flex-shrink-0">
                 <button
                   onClick={handleAddClick}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-150"
                 >
                   <svg className="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -724,31 +705,35 @@ const CurriculumManager: React.FC = () => {
                   Add {getEntityName()}
                 </button>
               </div>
-            </div>
-            
-            {/* Parent Selector */}
-            <ParentSelector 
-              label={getParentSelectionLabel()}
-              options={getParentSelectionOptions()}
-              value={getCurrentParentSelection()}
-              onChange={handleParentSelectionChange}
-              required={isParentSelectionRequired()}
-            />
-            
-            {/* Item Cards Grid */}
-            <ItemCardGrid 
-              items={getCurrentItems()}
-              entityName={getEntityName()}
-              isLoading={isLoading}
-              hierarchyInfo={getHierarchyInfo()}
-              parentSelectionRequired={isParentSelectionRequired()}
-              hasParentSelected={!!getCurrentParentSelection()}
-              onAddClick={handleAddClick}
-              onEditClick={handleEditClick}
-              onDeleteClick={handleDeleteClick}
-              activeTab={activeTab}
-            />
+            )}
           </div>
+          
+          {/* Parent Selector */}
+          {isParentSelectionRequired() && (
+            <div className="mb-5">
+              <ParentSelector 
+                label={getParentSelectionLabel()}
+                options={getParentSelectionOptions()}
+                value={getCurrentParentSelection()}
+                onChange={handleParentSelectionChange}
+                required={isParentSelectionRequired()}
+              />
+            </div>
+          )}
+          
+          {/* Item Cards Grid */}
+          <ItemCardGrid 
+            items={getCurrentItems()}
+            entityName={getEntityName()}
+            isLoading={isLoading}
+            hierarchyInfo={getHierarchyInfo()}
+            parentSelectionRequired={isParentSelectionRequired()}
+            hasParentSelected={!!getCurrentParentSelection()}
+            onAddClick={handleAddClick}
+            onEditClick={handleEditClick}
+            onDeleteClick={handleDeleteClick}
+            activeTab={activeTab}
+          />
         </div>
       </div>
         

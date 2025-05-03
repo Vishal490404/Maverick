@@ -303,5 +303,78 @@ export const questionApi = {
       console.error('Create question bank error:', error);
       return { error: 'Network error. Please check your connection and try again.' };
     }
+  },
+  
+  /**
+   * Add a question to a question bank
+   */
+  addQuestionToBank: async (bankId: string, questionId: string, token: string): Promise<ApiResponse<null>> => {
+    try {
+      const response = await fetch(`${API_URL}/question-banks/${bankId}/questions/${questionId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      return { data: null };
+    } catch (error) {
+      console.error('Add question to bank error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+
+  /**
+   * Get questions in a bank
+   */
+  getQuestionsInBank: async (bankId: string, token: string): Promise<ApiResponse<Question[]>> => {
+    try {
+      const response = await fetch(`${API_URL}/question-banks/${bankId}/questions`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error('Get questions in bank error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
+  },
+  
+  /**
+   * Remove a question from a bank
+   */
+  removeQuestionFromBank: async (bankId: string, questionId: string, token: string): Promise<ApiResponse<null>> => {
+    try {
+      const response = await fetch(`${API_URL}/question-banks/${bankId}/questions/${questionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorMessage = await handleApiError(response);
+        return { error: errorMessage, statusCode: response.status };
+      }
+
+      return { data: null };
+    } catch (error) {
+      console.error('Remove question from bank error:', error);
+      return { error: 'Network error. Please check your connection and try again.' };
+    }
   }
 };

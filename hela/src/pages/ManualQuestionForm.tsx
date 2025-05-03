@@ -1,119 +1,56 @@
-import React, { useState, useEffect, FormEvent, useRef } from 'react';
+import React, { useState, useEffect, FormEvent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { questionApi, curriculumApi, QuestionType, Standard, Subject, Chapter, Topic, Tag } from '../utils/api';
+import { questionApi, curriculumApi } from '../utils/api';
+import { QuestionType, Chapter, Topic, Tag } from '../utils/api';
+import { API_URL } from '../utils/api/utils';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
 
-const ManualQuestionForm: React.FC = () => {
-  console.log("ManualQuestionForm component rendering");
+interface Props {
+  bankId?: string;
+  standardId?: string;
+  subjectId?: string;
+  onQuestionCreated?: () => void;
+}
+
+const ManualQuestionForm: React.FC<Props> = ({ bankId, standardId, subjectId, onQuestionCreated }) => {
   const navigate = useNavigate();
-  const { token, isAuthenticated } = useAuth();
-  
-  console.log("Auth status:", isAuthenticated ? "Authenticated" : "Not authenticated");
-  
-  useEffect(() => {
-    console.log("ManualQuestionForm mounted");
-    return () => {
-      console.log("ManualQuestionForm unmounted");
-    };
-  }, []);
+  const { token } = useAuth();
   
   // Form states
   const [questionText, setQuestionText] = useState<string>('');
   const [questionTypeId, setQuestionTypeId] = useState<string>('');
-  const [difficultyLevel, setDifficultyLevel] = useState<string>('medium'); // Default to medium
+  const [difficultyLevel, setDifficultyLevel] = useState<string>('medium');
   const [marks, setMarks] = useState<number>(1);
   const [imageRequired, setImageRequired] = useState<boolean>(false);
   const [topicId, setTopicId] = useState<string>('');
   const [tags, setTags] = useState<string>('');
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
-  // LaTeX editor states
-  const [showPreview, setShowPreview] = useState<boolean>(true);
-  const [latexPreview, setLatexPreview] = useState<string>('');
   const [latexError, setLatexError] = useState<string | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
 
-  // New tag states
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-
-  // Selection states for hierarchy
-  const [standardId, setStandardId] = useState<string>('');
-  const [subjectId, setSubjectId] = useState<string>('');
+  // Selection states
   const [chapterId, setChapterId] = useState<string>('');
   
   // Data states
   const [questionTypes, setQuestionTypes] = useState<QuestionType[]>([]);
-  const [standards, setStandards] = useState<Standard[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // UI states
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
-  // Load standards and question types on component mount
-  useEffect(() => {
-    if (token) {
-      fetchStandards();
-      fetchQuestionTypes();
-      fetchTags();
-    }
-  }, [token]);
-  
-  // Load subjects when standard changes
-  useEffect(() => {
-    if (standardId && token) {
-      fetchSubjects(standardId);
-      setSubjectId('');
-      setChapterId('');
-      setTopicId('');
-    }
-  }, [standardId, token]);
-  
-  // Load chapters when subject changes
-  useEffect(() => {
-    if (subjectId && token) {
-      fetchChapters(subjectId);
-      setChapterId('');
-      setTopicId('');
-    }
-  }, [subjectId, token]);
-  
-  // Load topics when chapter changes
-  useEffect(() => {
-    if (chapterId && token) {
-      fetchTopics(chapterId);
-      setTopicId('');
-    }
-  }, [chapterId, token]);
-  
-  // Fetch standards
-  const fetchStandards = async () => {
-    setIsLoading(true);
-    try {
-      const response = await curriculumApi.getStandards(token!);
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setStandards(response.data);
-      }
-    } catch (err) {
-      console.error('Error fetching standards:', err);
-      setError('Failed to load standards');
-    } finally {
-      setIsLoading(false);
-    }
+
+  const handleError = (err: unknown) => {
+    console.error('Error:', err);
+    setError(err instanceof Error ? err.message : 'An unexpected error occurred');
   };
 
-  // Fetch question types
-  const fetchQuestionTypes = async () => {
-    setIsLoading(true);
+  const fetchQuestionTypes = useCallback(async () => {
     try {
       const response = await curriculumApi.getQuestionTypes(token!);
       if (response.error) {
@@ -122,51 +59,37 @@ const ManualQuestionForm: React.FC = () => {
         setQuestionTypes(response.data);
       }
     } catch (err) {
-      console.error('Error fetching question types:', err);
-      setError('Failed to load question types');
-    } finally {
-      setIsLoading(false);
+      handleError(err);
     }
-  };
+  }, [token]);
 
-  // Fetch subjects for a standard
-  const fetchSubjects = async (stdId: string) => {
-    setIsLoading(true);
+  const fetchTags = useCallback(async () => {
     try {
-      const response = await curriculumApi.getSubjects(stdId, token!);
+      const response = await curriculumApi.getTags(token!);
       if (response.error) {
         setError(response.error);
       } else if (response.data) {
-        setSubjects(response.data);
+        setAvailableTags(response.data);
       }
     } catch (err) {
-      console.error('Error fetching subjects:', err);
-      setError('Failed to load subjects');
-    } finally {
-      setIsLoading(false);
+      handleError(err);
     }
-  };
+  }, [token]);
 
-  // Fetch chapters for a subject
-  const fetchChapters = async (subjId: string) => {
-    setIsLoading(true);
+  const fetchChapters = useCallback(async (subjectId: string) => {
     try {
-      const response = await curriculumApi.getChapters(subjId, token!);
+      const response = await curriculumApi.getChapters(subjectId, token!);
       if (response.error) {
         setError(response.error);
       } else if (response.data) {
         setChapters(response.data);
       }
     } catch (err) {
-      console.error('Error fetching chapters:', err);
-      setError('Failed to load chapters');
-    } finally {
-      setIsLoading(false);
+      handleError(err);
     }
-  };
+  }, [token]);
 
-  // Fetch topics for a chapter
-  const fetchTopics = async (chaptId: string) => {
+  const fetchTopics = useCallback(async (chaptId: string) => {
     setIsLoading(true);
     try {
       const response = await curriculumApi.getTopics(chaptId, token!);
@@ -181,25 +104,49 @@ const ManualQuestionForm: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
-  // Fetch available tags
-  const fetchTags = async () => {
-    setIsLoading(true);
-    try {
-      const response = await curriculumApi.getTags(token!);
-      if (response.error) {
-        setError(response.error);
-      } else if (response.data) {
-        setAvailableTags(response.data);
-      }
-    } catch (err) {
-      console.error('Error fetching tags:', err);
-      setError('Failed to load tags');
-    } finally {
-      setIsLoading(false);
+  // Initial data loading
+  useEffect(() => {
+    if (bankId && token) {
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          // Fetch bank details
+          const bankResponse = await fetch(`${API_URL}/question-banks/${bankId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (bankResponse.ok) {
+            const bank = await bankResponse.json();
+            if (bank.subject_id) {
+              await fetchChapters(bank.subject_id);
+            }
+          }
+
+          // Fetch other required data
+          await Promise.all([
+            fetchQuestionTypes(),
+            fetchTags()
+          ]);
+        } catch (err: unknown) {
+          setError(err instanceof Error ? err.message : 'Failed to load required data');
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchData();
     }
-  };
+  }, [bankId, token, fetchChapters, fetchQuestionTypes, fetchTags]);
+
+  // Load topics when chapter changes
+  useEffect(() => {
+    if (chapterId && token) {
+      fetchTopics(chapterId);
+      setTopicId('');
+    }
+  }, [chapterId, token, fetchTopics]);
 
   // Handle image selection
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,9 +187,44 @@ const ManualQuestionForm: React.FC = () => {
     setTags(selectedTags.join(', '));
   }, [selectedTagIds, availableTags]);
 
+  // Handle successful question creation
+  const handleSuccess = () => {
+    // Reset form
+    setQuestionText('');
+    setDifficultyLevel('medium');
+    setMarks(1);
+    setImageRequired(false);
+    setImage(null);
+    setImagePreview(null);
+    setTags('');
+    setTopicId('');
+
+    // Redirect
+    handleRedirect();
+  };
+
+  // Redirect handler
+  const handleRedirect = () => {
+    if (onQuestionCreated) {
+      onQuestionCreated();
+    } else {
+      if (bankId) {
+        navigate(`/question-banks/${bankId}`);
+      } else {
+        navigate('/questions/create');
+      }
+    }
+  };
+
   // Form submission handler
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isLoading) {
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
     setSuccess(null);
@@ -255,43 +237,32 @@ const ManualQuestionForm: React.FC = () => {
     }
     
     try {
-      const formData = new FormData();
-      formData.append('question_text', questionText);
-      formData.append('question_type_id', questionTypeId);
-      formData.append('difficulty_level', difficultyLevel);
-      formData.append('marks', marks.toString());
-      formData.append('image_required', imageRequired.toString());
-      formData.append('topic_id', topicId);
-      if (tags.trim()) {
-        formData.append('tags', tags);
-      }
-      if (image && imageRequired) {
-        formData.append('image', image);
-      }
+      // Create question data
+      const questionData = {
+        question_text: questionText,
+        question_type_id: questionTypeId,
+        difficulty_level: difficultyLevel,
+        marks: marks,
+        image_required: imageRequired,
+        topic_id: topicId,
+        tags: tags.trim() ? tags : undefined,
+        image: image && imageRequired ? image : undefined,
+        question_bank_id: bankId || undefined
+      };
       
-      const response = await questionApi.createQuestion(formData, token!);
+      // Create the question
+      const response = await questionApi.createQuestion(questionData, token!);
       
       if (response.error) {
         setError(response.error);
       } else {
+        // No need for a separate call to add the question to the bank - it's already handled by the backend
         setSuccess('Question created successfully!');
-        // Reset form
-        setQuestionText('');
-        setDifficultyLevel('medium');
-        setMarks(1);
-        setImageRequired(false);
-        setImage(null);
-        setImagePreview(null);
-        setTags('');
-        
-        // Redirect after short delay
-        setTimeout(() => {
-          navigate('/questions/create');
-        }, 1500);
+        handleSuccess();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error creating question:', err);
-      setError('An error occurred while creating the question');
+      setError(err instanceof Error ? err.message : 'An error occurred while creating the question');
     } finally {
       setIsLoading(false);
     }
@@ -303,8 +274,8 @@ const ManualQuestionForm: React.FC = () => {
     setImagePreview(null);
   };
 
-  // Parse and render LaTeX content
-  const renderLatex = (content: string) => {
+  // Add proper type for renderLatex function
+  const renderLatex = useCallback((content: string): string => {
     if (!content) return '';
     
     try {
@@ -345,26 +316,21 @@ const ManualQuestionForm: React.FC = () => {
       });
       
       return rendered;
-    } catch (err) {
-      console.error('LaTeX parsing error:', err);
+    } catch (err: unknown) {
+      console.error('LaTeX rendering error:', err);
       return content;
     }
-  };
+  }, []);
 
-  // Using useEffect to handle LaTeX preview updates
-  useEffect(() => {
-    // Only update preview if we're showing it
-    if (showPreview) {
-      setLatexPreview(renderLatex(questionText));
-    }
-  }, [questionText, showPreview]);
+  // Replace the LaTeX preview effect with direct rendering in the component
+  const previewContent = questionText ? renderLatex(questionText) : '<p class="text-gray-400">Preview will appear here...</p>';
 
   return (
     <div className="bg-gray-50 min-h-screen pt-6 pb-12 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Create New Question</h1>
-          <p className="mt-1 text-sm text-gray-600">Manually create a new question with all details</p>
+          {bankId && <p className="mt-1 text-sm text-gray-600">The question will be automatically added to the selected question bank.</p>}
         </div>
 
         {/* Success message */}
@@ -405,45 +371,6 @@ const ManualQuestionForm: React.FC = () => {
               <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                 {/* Curriculum Hierarchy Selection */}
                 <div className="sm:col-span-3">
-                  <label htmlFor="standard" className="block text-sm font-medium text-gray-700 required">Standard</label>
-                  <select
-                    id="standard"
-                    name="standard"
-                    value={standardId}
-                    onChange={(e) => setStandardId(e.target.value)}
-                    required
-                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  >
-                    <option value="">Select Standard</option>
-                    {standards.map((standard) => (
-                      <option key={standard.id} value={standard.id}>
-                        {standard.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-3">
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-700 required">Subject</label>
-                  <select
-                    id="subject"
-                    name="subject"
-                    value={subjectId}
-                    onChange={(e) => setSubjectId(e.target.value)}
-                    required
-                    disabled={!standardId}
-                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">Select Subject</option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={subject.id}>
-                        {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-3">
                   <label htmlFor="chapter" className="block text-sm font-medium text-gray-700 required">Chapter</label>
                   <select
                     id="chapter"
@@ -451,8 +378,7 @@ const ManualQuestionForm: React.FC = () => {
                     value={chapterId}
                     onChange={(e) => setChapterId(e.target.value)}
                     required
-                    disabled={!subjectId}
-                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   >
                     <option value="">Select Chapter</option>
                     {chapters.map((chapter) => (
@@ -691,82 +617,77 @@ const ManualQuestionForm: React.FC = () => {
 
                 {/* Question Text */}
                 <div className="sm:col-span-6">
-                  <label htmlFor="questionText" className="block text-sm font-medium text-gray-700 required">
-                    Question Text with LaTeX Support
-                  </label>
-                  
-                  {/* LaTeX Editor Options */}
-                  <div className="flex items-center justify-between mt-1 mb-2">
-                    <div className="text-xs text-gray-500">
-                      Use $...$ for inline math and $$...$$ for display math mode.
-                    </div>
-                    <div>
-                      <button
-                        type="button"
-                        onClick={() => setShowPreview(!showPreview)}
-                        className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500"
-                      >
-                        {showPreview ? 'Hide Preview' : 'Show Preview'}
-                      </button>
+                  <div className="mb-4">
+                    <label htmlFor="questionText" className="block text-sm font-medium text-gray-700 required">
+                      Question Text
+                    </label>
+                    <div className="mt-1 flex justify-between items-center">
+                      <div className="text-xs text-gray-500 flex items-center space-x-2">
+                        <span className="bg-gray-100 px-2 py-1 rounded">$...$</span>
+                        <span>for inline math</span>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* LaTeX Editor and Preview */}
-                  <div className={`grid ${showPreview ? 'grid-cols-2 gap-4' : 'grid-cols-1'}`}>
+                  {/* LaTeX Editor and Preview Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {/* Editor */}
-                    <div className="rounded-md shadow-sm">
-                      <textarea
-                        id="questionText"
-                        name="questionText"
-                        rows={10}
-                        value={questionText}
-                        onChange={(e) => {
-                          setQuestionText(e.target.value);
-                          // Preview is now handled by the useEffect
-                        }}
-                        required
-                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm font-mono"
-                        placeholder="Enter question text. Use LaTeX for equations: $x^2$ or $$\\frac{1}{2}$$"
-                      />
+                    <div className="space-y-2">
+                      <div className="text-xs text-gray-500 font-medium">Editor</div>
+                      <div className="rounded-md shadow-sm h-[300px]">
+                        <textarea
+                          id="questionText"
+                          name="questionText"
+                          rows={12}
+                          value={questionText}
+                          onChange={(e) => {
+                            setQuestionText(e.target.value);
+                          }}
+                          required
+                          className="block w-full h-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm font-mono bg-white resize-none"
+                          placeholder="Enter your question here..."
+                        />
+                      </div>
                     </div>
                     
                     {/* Preview */}
-                    {showPreview && (
-                      <div className="border border-gray-300 rounded-md bg-gray-50 p-3 overflow-auto" style={{ minHeight: '11rem' }}>
-                        <div className="text-xs text-gray-500 mb-2">Preview:</div>
+                    <div className="space-y-2">
+                      <div className="text-xs text-gray-500 font-medium">Preview</div>
+                      <div 
+                        className="h-[300px] border border-gray-200 rounded-lg bg-gray-50 p-4 overflow-auto"
+                      >
                         <div 
-                          ref={previewRef}
                           className="prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{ 
-                            __html: questionText ? renderLatex(questionText) : '<p class="text-gray-400">Preview will appear here...</p>' 
+                            __html: previewContent
                           }}
                         />
                         {latexError && (
-                          <div className="mt-2 text-xs text-red-500">{latexError}</div>
+                          <div className="mt-2 text-sm text-red-500 bg-red-50 p-2 rounded">{latexError}</div>
                         )}
                       </div>
-                    )}
+                    </div>
                   </div>
                   
-                  {/* LaTeX Reference */}
-                  <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-md">
-                    <h4 className="text-sm font-medium text-blue-800 mb-1">LaTeX Examples:</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <code className="bg-blue-100 px-1 py-0.5 rounded">{`$x^2 + y^2 = z^2$`}</code>
-                        <span className="ml-2 text-gray-600">→ Inline equation</span>
+                  {/* LaTeX Quick Reference */}
+                  <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg">
+                    <h4 className="text-sm font-medium text-blue-800 mb-2">LaTeX Quick Reference:</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      <div className="bg-white/80 rounded p-2 text-sm">
+                        <code className="block bg-blue-50 px-2 py-1 rounded text-xs mb-1">{`$x^2 + y^2 = z^2$`}</code>
+                        <span className="text-xs text-gray-600">Basic equation</span>
                       </div>
-                      <div>
-                        <code className="bg-blue-100 px-1 py-0.5 rounded">{`$$\\sqrt{x^2+y^2}$$`}</code>
-                        <span className="ml-2 text-gray-600">→ Display equation</span>
+                      <div className="bg-white/80 rounded p-2 text-sm">
+                        <code className="block bg-blue-50 px-2 py-1 rounded text-xs mb-1">{`$\\frac{1}{2}$`}</code>
+                        <span className="text-xs text-gray-600">Fractions</span>
                       </div>
-                      <div>
-                        <code className="bg-blue-100 px-1 py-0.5 rounded">{`$$\\frac{1}{2}$$`}</code>
-                        <span className="ml-2 text-gray-600">→ Fractions</span>
+                      <div className="bg-white/80 rounded p-2 text-sm">
+                        <code className="block bg-blue-50 px-2 py-1 rounded text-xs mb-1">{`$\\sqrt{x^2+y^2}$`}</code>
+                        <span className="text-xs text-gray-600">Square root</span>
                       </div>
-                      <div>
-                        <code className="bg-blue-100 px-1 py-0.5 rounded">{`$$\\int_{a}^{b} f(x) dx$$`}</code>
-                        <span className="ml-2 text-gray-600">→ Integrals</span>
+                      <div className="bg-white/80 rounded p-2 text-sm">
+                        <code className="block bg-blue-50 px-2 py-1 rounded text-xs mb-1">{`$\\int_{a}^{b} f(x) dx$`}</code>
+                        <span className="text-xs text-gray-600">Integral</span>
                       </div>
                     </div>
                   </div>

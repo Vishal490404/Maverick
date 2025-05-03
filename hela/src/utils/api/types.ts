@@ -81,6 +81,15 @@ export interface QuestionBank {
   id: string;
   name: string;
   description?: string;
+  standard_id: string;
+  standard_name: string;
+  subject_id: string;
+  subject_name: string;
+  question_count: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by: string;
 }
 
 export interface Question {

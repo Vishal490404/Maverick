@@ -11,7 +11,8 @@ import QuestionBanks from './pages/QuestionBank';
 import ManualQuestionForm from './pages/ManualQuestionForm';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import AddQuestionBank  from './pages/AddQuestionBank';
+import AddQuestionBank from './pages/AddQuestionBank';
+import QuestionBankDetail from './pages/QuestionBankDetail';
 
 // Added placeholder components for coming soon pages
 const PlaceholderPage = ({ title }: { title: string }) => (
@@ -33,7 +34,6 @@ const PlaceholderPage = ({ title }: { title: string }) => (
   </div>
 );
 
-const QuestionBanksPage = () => <PlaceholderPage title="Question Banks" />;
 const AllPapersPage = () => <PlaceholderPage title="All Papers" />;
 const SettingsPage = () => <PlaceholderPage title="Settings" />;
 
@@ -130,12 +130,20 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            {/* Add Question Bank */}
+            {/* Question Bank routes */}
             <Route 
               path="/question-banks/add" 
               element={
                 <ProtectedRoute>
                   <AddQuestionBank />
+                </ProtectedRoute>
+              }
+            />
+            <Route 
+              path="/question-banks/:bankId" 
+              element={
+                <ProtectedRoute>
+                  <QuestionBankDetail />
                 </ProtectedRoute>
               }
             />

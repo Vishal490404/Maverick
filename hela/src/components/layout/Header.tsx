@@ -196,7 +196,6 @@ const Header = () => {
                       {user?.full_name?.charAt(0) || user?.username?.charAt(0) || '?'}
                     </span>
                   </div>
-                  <span className="ml-2 p-2 text-blue-600 font-medium">{user?.username}</span>
                 </button>
                 {isProfileOpen && (
                   <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
