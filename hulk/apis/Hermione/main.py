@@ -21,7 +21,7 @@ from models.question_bank_model import DifficultyLevel
 from pydantic import BaseModel, Field
 import asyncio
 import time
-from ..Harry.db_init import get_curriculum_db
+from apis.Harry.db_init import get_curriculum_db
 
 # ----- QUESTION MODELS -----
 
@@ -47,7 +47,6 @@ class QuestionResponse(BaseModel):
     id: str
     question_text: str
     question_type_id: str
-    question_type_name: str
     difficulty_level: str
     marks: int
     image_required: bool
@@ -59,8 +58,8 @@ class QuestionResponse(BaseModel):
     tags: Optional[List[str]] = None
     created_at: datetime
     created_by: str
-    updated_at: datetime
-    updated_by: str
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
 
 load_dotenv(dotenv_path=".env")
 
@@ -92,6 +91,7 @@ def get_grid_fs():
 @router.post("/scan-pdf", status_code=status.HTTP_200_OK)
 async def scan_pdf(
     file: UploadFile = File(...),
+    question_bank_id: Optional[str] = Form(None),
     current_user = Depends(get_current_user)
 ):
     if not GEMINI_API_KEY:
@@ -105,6 +105,21 @@ async def scan_pdf(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be a PDF document"
         )
+
+    # If question_bank_id is provided, verify it exists and get its standard/subject
+    bank_info = None
+    if question_bank_id:
+        db = get_question_db()
+        bank = db.question_banks.find_one({"id": question_bank_id})
+        if not bank:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question bank not found"
+            )
+        bank_info = {
+            "standard_id": bank["standard_id"],
+            "subject_id": bank["subject_id"]
+        }
 
     temp_pdf_path = None
     try:
@@ -168,6 +183,10 @@ async def scan_pdf(
             print(f"[DEBUG] Average processing time per page: {total_duration/num_pages:.2f}s")
                     
         combined_data = get_checked_from_openai_response(combined_data)
+        # Add bank info to response if available
+        if bank_info:
+            combined_data["bank_info"] = bank_info
+            
         return combined_data
 
     except Exception as e:
@@ -185,6 +204,7 @@ async def scan_pdf(
 @router.post("/scan-excel", status_code=status.HTTP_200_OK)
 async def scan_excel(
     file: UploadFile = File(...),
+    question_bank_id: Optional[str] = Form(None),
     current_user = Depends(get_current_user)
 ):
     """Extract questions from Excel/CSV files"""
@@ -196,6 +216,20 @@ async def scan_excel(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be an Excel or CSV document"
         )
+   
+    bank_info = None
+    if question_bank_id:
+        db = get_question_db()
+        bank = db.question_banks.find_one({"id": question_bank_id})
+        if not bank:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question bank not found"
+            )
+        bank_info = {
+            "standard_id": bank["standard_id"],
+            "subject_id": bank["subject_id"]
+        }
     
     temp_file_path = None
     try:
@@ -203,8 +237,6 @@ async def scan_excel(
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
             temp_file.write(await file.read())
             temp_file_path = temp_file.name
-            
-        # Read the Excel/CSV file
         if file.filename.endswith('.csv'):
             df = pd.read_csv(temp_file_path)
         else:
@@ -219,12 +251,12 @@ async def scan_excel(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File must contain the following columns: {', '.join(required_columns)}"
             )
-        
+        df = df[df['question_text'].notna()]
         # Extract questions from dataframe
         questions = []
         for _, row in df.iterrows():
             question = {
-                "question_text": row['question_text'],
+                "question_text": str(row['question_text']).strip(),
                 "image_required": bool(row.get('image_required', False))
             }
             questions.append(question)
@@ -233,7 +265,8 @@ async def scan_excel(
         result_data = {
             "questions": questions,
         }
-        
+        if bank_info:
+            result_data["bank_info"] = bank_info
         
         return result_data
         
@@ -252,6 +285,7 @@ async def scan_excel(
 @router.post("/scan-image", status_code=status.HTTP_200_OK)
 async def scan_image(
     file: UploadFile = File(...),
+    question_bank_id: Optional[str] = Form(None),
     current_user = Depends(get_current_user)
 ):
     """Extract questions from image files"""
@@ -266,12 +300,29 @@ async def scan_image(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="File must be an image"
         )
+
+    # If question_bank_id is provided, verify it exists and get its standard/subject    
+    bank_info = None
+    if question_bank_id:
+        db = get_question_db()
+        bank = db.question_banks.find_one({"id": question_bank_id})
+        if not bank:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question bank not found"
+            )
+        bank_info = {
+            "standard_id": bank["standard_id"],
+            "subject_id": bank["subject_id"]
+        }
     
     try:
         image_data = await file.read()
         image = Image.open(BytesIO(image_data))
         result_data = await extract_questions_from_image(image)
         result_data = get_checked_from_openai_response(result_data)
+        if bank_info:
+            result_data["bank_info"] = bank_info
         return result_data
         
     except Exception as e:
@@ -288,27 +339,14 @@ async def create_question(
     marks: int = Form(..., description="Marks assigned to the question"),
     image_required: bool = Form(..., description="Indicates if the question requires an image/diagram"),
     topic_id: str = Form(..., description="Topic ID for the question"),
+    question_bank_id: Optional[str] = Form(None, description="Optional question bank ID to add the question to"),
     tags: Optional[str] = Form(None, description="Comma-separated list of tags associated with the question"),
     image: Optional[UploadFile] = File(None, description="Image file for the question if required"),
     current_user = Depends(get_current_user)
 ):
-    """Create a new question with optional image upload"""
+    """Create a new question with optional image upload and add to question bank if specified"""
     question_db = get_question_db()
     curriculum_db = get_curriculum_db()
-    
-    # Parse tags from comma-separated string if provided
-    tag_list = None
-    if tags:
-        tag_list = [tag.strip() for tag in tags.split(',')]
-    
-    # Validate difficulty level
-    try:
-        difficulty = DifficultyLevel(difficulty_level)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid difficulty level. Valid options are: {[level.value for level in DifficultyLevel]}"
-        )
     
     # Validate topic_id and get related information
     topic = curriculum_db.topics.find_one({"id": topic_id})
@@ -347,6 +385,14 @@ async def create_question(
             detail="Question type not found"
         )
     
+    # Validate difficulty level
+    try:
+        difficulty = DifficultyLevel(difficulty_level)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid difficulty level. Valid options are: {[level.value for level in DifficultyLevel]}"
+        )
     
     # Validate image requirement
     if image_required and not image:
@@ -366,16 +412,16 @@ async def create_question(
         "difficulty_level": difficulty.value,
         "marks": marks,
         "image_required": image_required,
-        "tags": tag_list,
+        "tags": [tag.strip() for tag in tags.split(',')] if tags else None,
         "created_at": current_time,
-        "updated_at": current_time,
+        "updated_at": None,
         "created_by": current_user.username,
-        "updated_by": current_user.username,
+        "updated_by": None,
         "topic_id": topic_id,
         "chapter_id": chapter["id"],
         "subject_id": subject["id"],
         "standard_id": standard["id"],
-        "images": []  
+        "images": []
     }
     
     # Handle image upload if provided
@@ -418,10 +464,34 @@ async def create_question(
             detail="Failed to create question"
         )
     
+    # If question_bank_id is provided, add the question to the bank
+    if question_bank_id:
+        db = get_question_db()
+        # Check if the bank exists and belongs to the correct standard/subject
+        bank = db.question_banks.find_one({
+            "id": question_bank_id,
+            "standard_id": standard["id"],
+            "subject_id": subject["id"]
+        })
+        
+        if not bank:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question bank not found or doesn't match the question's standard/subject"
+            )
+            
+        # Add question to bank
+        db.question_banks.update_one(
+            {"id": question_bank_id},
+            {
+                "$push": {"question_ids": question_id},
+                "$set": {"updated_at": datetime.now()}
+            }
+        )
+    
     # Prepare response
     response_data = {
         **question_dict,
-        "question_type_name": question_type["name"]
     }
     
     return QuestionResponse(**response_data)
@@ -490,6 +560,8 @@ async def get_question_image(
 class Question(BaseModel):
     question_text: str
     image_required: bool
+    question_type: Optional[str] = None
+
 def sanitize_latex(response_text):
     if isinstance(response_text, str):
         response_text = re.sub(r'\\(?!")', r'\\\\', response_text)

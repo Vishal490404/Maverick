@@ -19,6 +19,7 @@ pdf2image = "*"
 pillow = "*"
 openai = "*"
 pandas = "*"
+openpyxl = "*"
 
 [dev-packages]
 pytest = "*"

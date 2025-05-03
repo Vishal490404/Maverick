@@ -22,9 +22,8 @@ class DifficultyLevel(str, Enum):
 # questions will be in latex language
 class Question(BaseModel):
     id: UUID = Field(default_factory=uuid4, description="Unique identifier for the question")
-    # Remember to implement a question id made up of the subject chapter and topic id
     question_text: str = Field(..., description="The text of the question maybe in latex format and multilingual")
-    question_type: QuestionType = Field(..., description="Type of the question")
+    question_type_id: QuestionType = Field(..., description="Type of the question")
     image_required: bool = Field(..., description="Indicates if the question requires an image/diagram to be understood")
     images: Optional[List[UUID]] = Field(None, description="List of image identifiers associated with the question")
     difficulty_level: DifficultyLevel = Field(..., description="Difficulty level of the question")

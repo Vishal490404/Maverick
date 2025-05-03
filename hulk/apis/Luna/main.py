@@ -7,8 +7,9 @@ from pymongo import MongoClient
 import os
 from models.user_model import User
 from security.main import get_current_user
-from models.question_bank_model import Question
 from apis.Harry.db_init import get_curriculum_db
+from apis.Hermione.main import QuestionResponse
+
 
 # Setup router
 router = APIRouter(tags=["question_banks"])
@@ -347,7 +348,7 @@ async def remove_question_from_bank(
     
     return None
 
-@router.get("/question-banks/{bank_id}/questions", response_model=List[Question])
+@router.get("/question-banks/{bank_id}/questions", response_model=List[QuestionResponse])
 async def get_questions_in_bank(
     bank_id: str,
     current_user: User = Depends(get_current_user)
